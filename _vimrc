@@ -35,7 +35,7 @@ set sw=4
 set ts=4
 set nu
 set nohls
-cd c:\Users\bcleek\Documents
+cd ~\Documents
 set backupskip+=bzr_log*
 
 set ssop=blank,curdir,folds,options,tabpages,winsize

@@ -1,7 +1,0 @@
-let g:netrw_dirhistmax  =10
-let g:netrw_dirhist_cnt =5
-let g:netrw_dirhist_1='C:/Users/bcleek/Documents/Develop/SingleFamily.bzr/trunk/src/SingleFamily/css'
-let g:netrw_dirhist_2='C:/Users/bcleek/Documents/Develop/ProjectBerlin.bzr/svn-wc/sql/core/indexes'
-let g:netrw_dirhist_3='C:/Users/bcleek/Documents/Develop/ProjectBerlin.bzr/svn-wc/sql/dte/tables'
-let g:netrw_dirhist_4='C:/Users/bcleek/AppData/Local/svn-cache/d013095a-dfb4-6643-9c6d-ec76436bf80c'
-let g:netrw_dirhist_5='c:/Users/bcleek/Documents/Develop'

@@ -2,8 +2,12 @@ runtime bundle/pathogen/autoload/pathogen.vim
 
 set nocompatible
 source $VIMRUNTIME/vimrc_example.vim
-source $VIMRUNTIME/mswin.vim
-behave mswin
+
+if has("win64") || has("win32") || has("win16")
+	source $VIMRUNTIME/mswin.vim
+	behave mswin
+	cd ~\Documents
+endif
 
 call pathogen#infect()
 
@@ -32,13 +36,14 @@ function MyDiff()
   silent execute '!' . cmd . ' ' . opt . arg1 . ' ' . arg2 . ' > ' . arg3 . eq
 endfunction
 
-color elflord
-set sw=4
-set ts=4
-set nu
-set nohls
-cd ~\Documents
+color solarized
+
+set shiftwidth=4
+set tabstop=4
+set number
 set backupskip+=bzr_log*
+set showmatch
+filetype plugin indent on " turn on filetype plugins, and the indent files for specific filetypes
 
 set ssop=blank,curdir,folds,options,tabpages,winsize
 set guifont=Consolas

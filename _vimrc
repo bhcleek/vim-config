@@ -36,7 +36,8 @@ function MyDiff()
   silent execute '!' . cmd . ' ' . opt . arg1 . ' ' . arg2 . ' > ' . arg3 . eq
 endfunction
 
-color solarized
+set background=dark
+colorscheme solarized
 
 set shiftwidth=4
 set tabstop=4

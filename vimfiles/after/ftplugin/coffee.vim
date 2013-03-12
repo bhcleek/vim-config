@@ -1,3 +1,3 @@
-setl sw=3
-setl ts=3
+setl sw=2
+setl ts=2
 setl expandtab

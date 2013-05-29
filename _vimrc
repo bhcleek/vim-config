@@ -48,3 +48,5 @@ filetype plugin indent on " turn on filetype plugins, and the indent files for s
 
 set ssop=blank,curdir,folds,options,tabpages,winsize
 set guifont=Consolas
+
+autocmd BufNewFile,BufRead *.json set ft=javascript

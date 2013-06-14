@@ -15,7 +15,7 @@ if exists("loaded_nerd_tree")
 
 	" put the cursor in the file to be edited (i.e. not the NERDTree window)
 	autocmd VimEnter * wincmd w
-	autocmd VimEnter * if startInDir == 1 | enew | endif
+	autocmd VimEnter * if startInDir == 1 | enew | wincmd w  | endif
 
 	" quit if NERDTree is the only window open
 	autocmd BufEnter * if (winnr("$") == 1 && exists("b:NERDTreeType") && b:NERDTreeType == "primary") | q | endif

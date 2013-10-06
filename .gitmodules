@@ -10,9 +10,12 @@
 [submodule "vimfiles/bundle/pathogen"]
 	path = vimfiles/bundle/pathogen
 	url = git://github.com/bhcleek/vim-pathogen
-[submodule "./vimfiles/bundle/coffee-script"]
+[submodule "vimfiles/bundle/coffee-script"]
 	path = vimfiles/bundle/coffee-script
 	url = git://github.com/bhcleek/vim-coffee-script
 [submodule "vimfiles/bundle/jade"]
 	path = vimfiles/bundle/jade
 	url = git://github.com/bhcleek/vim-jade.git
+[submodule "vimfiles/bundle/go"]
+	path = vimfiles/bundle/go
+	url = git://github.com/bhcleek/vim-golang

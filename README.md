@@ -1,7 +1,6 @@
 Installation
 ============
 
-
 submodules
 ----------
 * install the submodules

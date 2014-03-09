@@ -1,6 +1,3 @@
-[submodule "vimfiles/bundle/solarized"]
-	path = vimfiles/bundle/solarized
-	url = git://github.com/bhcleek/vim-colors-solarized.git
 [submodule "vimfiles/bundle/surround"]
 	path = vimfiles/bundle/surround
 	url = git://github.com/bhcleek/vim-surround.git

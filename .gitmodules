@@ -1,6 +1,3 @@
-[submodule "vimfiles/bundle/surround"]
-	path = vimfiles/bundle/surround
-	url = git://github.com/bhcleek/vim-surround.git
 [submodule "vimfiles/bundle/pathogen"]
 	path = vimfiles/bundle/pathogen
 	url = git://github.com/bhcleek/vim-pathogen

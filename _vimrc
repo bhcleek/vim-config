@@ -39,8 +39,8 @@ endfunction
 set background=dark
 colorscheme solarized
 
-set shiftwidth=4
-set tabstop=4
+set shiftwidth=2
+set tabstop=2
 set number
 set backupskip+=bzr_log*
 set showmatch

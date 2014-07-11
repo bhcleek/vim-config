@@ -24,18 +24,6 @@ if exists("*GoIndent")
   finish
 endif
 
-" The shiftwidth() function is relatively new.
-" Don't require it to exist.
-if exists('*shiftwidth')
-  func s:sw()
-    return shiftwidth()
-  endfunc
-else
-  func s:sw()
-    return &shiftwidth
-  endfunc
-endif
-
 function! GoIndent(lnum)
   let prevlnum = prevnonblank(a:lnum-1)
   if prevlnum == 0
@@ -52,17 +40,17 @@ function! GoIndent(lnum)
 
   if prevl =~ '[({]\s*$'
     " previous line opened a block
-    let ind += s:sw()
+    let ind += &sw
   endif
   if prevl =~# '^\s*\(case .*\|default\):$'
     " previous line is part of a switch statement
-    let ind += s:sw()
+    let ind += &sw
   endif
   " TODO: handle if the previous line is a label.
 
   if thisl =~ '^\s*[)}]'
     " this line closed a block
-    let ind -= s:sw()
+    let ind -= &sw
   endif
 
   " Colons are tricky.
@@ -70,7 +58,7 @@ function! GoIndent(lnum)
   " We ignore trying to deal with jump labels because (a) they're rare, and
   " (b) they're hard to disambiguate from a composite literal key.
   if thisl =~# '^\s*\(case .*\|default\):$'
-    let ind -= s:sw()
+    let ind -= &sw
   endif
 
   return ind

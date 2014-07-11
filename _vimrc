@@ -10,6 +10,7 @@ if has("win64") || has("win32") || has("win16")
 endif
 
 call pathogen#infect()
+Helptags " generate documentation from each directory in runtimepath
 
 set diffexpr=MyDiff()
 function MyDiff()

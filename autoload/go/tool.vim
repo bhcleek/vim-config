@@ -1,18 +1,30 @@
 function! go#tool#Files()
-    let command = "go list -f $'{{range $f := .GoFiles}}{{$.Dir}}/{{$f}}\n{{end}}'"
+    if has ("win32")
+        let command = 'go list -f "{{range $f := .GoFiles}}{{$.Dir}}/{{$f}}{{printf \"\n\"}}{{end}}"'
+    else
+        let command = "go list -f $'{{range $f := .GoFiles}}{{$.Dir}}/{{$f}}\n{{end}}'"
+    endif
     let out = go#tool#ExecuteInDir(command)
     return split(out, '\n')
 endfunction
 
 function! go#tool#Deps()
-    let command = "go list -f $'{{range $f := .Deps}}{{$f}}\n{{end}}'"
+    if has ("win32")
+        let command = 'go list -f "{{range $f := .Deps}}{{$f}}{{printf \"\n\"}}{{end}}"'
+    else
+        let command = "go list -f $'{{range $f := .Deps}}{{$f}}\n{{end}}'"
+    endif
     let out = go#tool#ExecuteInDir(command)
     return split(out, '\n')
 endfunction
 
 function! go#tool#Imports()
     let imports = {}
-    let command = "go list -f $'{{range $f := .Imports}}{{$f}}\n{{end}}'"
+    if has ("win32")
+        let command = 'go list -f "{{range $f := .Imports}}{{$f}}{{printf \"\n\"}}{{end}}"'
+    else
+        let command = "go list -f $'{{range $f := .Imports}}{{$f}}\n{{end}}'"
+    endif
     let out = go#tool#ExecuteInDir(command)
     if v:shell_error
         echo out
@@ -75,6 +87,34 @@ function! go#tool#Exists(importpath)
 
     if v:shell_error
         return -1
+    endif
+
+    return 0
+endfunction
+
+" BinExists checks whether the given binary exists or not. It returns 0 if the
+" binary exists under GOBIN path.
+function! go#tool#BinExists(binpath)
+    " remove whitespaces if user applied something like 'goimports   '
+    let binpath = substitute(a:binpath, '^\s*\(.\{-}\)\s*$', '\1', '')
+
+    let go_bin_path = GetBinPath()
+
+    if go_bin_path
+      let old_path = $PATH
+      let $PATH = $PATH . ":" .go_bin_path
+    endif
+
+    let basename = fnamemodify(binpath, ":t")
+
+    if !executable(binpath) 
+        echo "vim-go: could not find '" . basename . "'. Run :GoInstallBinaries to fix it."
+        return -1
+    endif
+
+    " restore back!
+    if go_bin_path
+        let $PATH = old_path
     endif
 
     return 0

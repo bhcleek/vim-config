@@ -2,10 +2,23 @@ if !exists("g:go_jump_to_error")
     let g:go_jump_to_error = 1
 endif
 
-function! go#command#Run(bang, ...)
+function! go#cmd#Run(bang, ...)
+    let goFiles = '"' . join(go#tool#Files(), '" "') . '"'
+
+    if IsWin()
+        exec '!go run ' . goFiles
+        if v:shell_error
+            redraws! | echon "vim-go: [run] " | echohl ErrorMsg | echon "FAILED"| echohl None
+        else
+            redraws! | echon "vim-go: [run] " | echohl Function | echon "SUCCESS"| echohl None
+        endif
+
+        return
+    endif
+
     let default_makeprg = &makeprg
     if !len(a:000)
-        let &makeprg = "go run " . join(go#tool#Files(), ' ')
+        let &makeprg = 'go run ' . goFiles
     else
         let &makeprg = "go run " . expand(a:1)
     endif
@@ -24,9 +37,9 @@ function! go#command#Run(bang, ...)
     let &makeprg = default_makeprg
 endfunction
 
-function! go#command#Install(...)
-    let pkgs = join(a:000, ' ')
-    let command = 'go install '.pkgs
+function! go#cmd#Install(...)
+    let pkgs = join(a:000, '" "')
+    let command = 'go install "' . pkgs . '"'
     let out = go#tool#ExecuteInDir(command)
     if v:shell_error
         call go#tool#ShowErrors(out)
@@ -41,13 +54,13 @@ function! go#command#Install(...)
     endif
 endfunction
 
-function! go#command#Build(bang)
+function! go#cmd#Build(bang, ...)
     let default_makeprg = &makeprg
-    let gofiles = join(go#tool#Files(), ' ')
+    let gofiles = join(go#tool#Files(), '" "')
     if v:shell_error
         let &makeprg = "go build . errors"
     else
-        let &makeprg = "go build -o /dev/null " . gofiles
+        let &makeprg = "go build -o /dev/null " . join(a:000, ' ') . ' "' . gofiles . '"'
     endif
 
     echon "vim-go: " | echohl Identifier | echon "building ..."| echohl None
@@ -60,7 +73,7 @@ function! go#command#Build(bang)
             if g:go_jump_to_error
                 cc 1 "jump to first error if there is any
             endif
-        else 
+        else
             redraws! | echon "vim-go: " | echohl Function | echon "[build] SUCCESS"| echohl None
         endif
     endif
@@ -68,7 +81,7 @@ function! go#command#Build(bang)
     let &makeprg = default_makeprg
 endfunction
 
-function! go#command#Test(...)
+function! go#cmd#Test(...)
     let command = "go test ."
     if len(a:000)
         let command = "go test " . expand(a:1)
@@ -93,7 +106,7 @@ function! go#command#Test(...)
     endif
 endfunction
 
-function! go#command#Coverage(...)
+function! go#cmd#Coverage(...)
     let l:tmpname=tempname()
 
     let command = "go test -coverprofile=".l:tmpname
@@ -120,22 +133,24 @@ function! go#command#Coverage(...)
     call delete(l:tmpname)
 endfunction
 
-function! go#command#Vet()
+function! go#cmd#Vet()
+    echon "vim-go: " | echohl Identifier | echon "calling vet..." | echohl None
     let out = go#tool#ExecuteInDir('go vet')
-    let errors = []
-    for line in split(out, '\n')
-        let tokens = matchlist(line, '^\(.\{-}\):\(\d\+\):\s*\(.*\)')
-        if !empty(tokens)
-            call add(errors, {"filename": @%,
-                        \"lnum":     tokens[2],
-                        \"text":     tokens[3]})
-        endif
-    endfor
-    if !empty(errors)
-        call setqflist(errors, 'r')
+    if v:shell_error
+        call go#tool#ShowErrors(out)
+    else
+        call setqflist([])
     endif
-
     cwindow
+
+    let errors = getqflist()
+    if !empty(errors)
+        if g:go_jump_to_error
+            cc 1 "jump to first error if there is any
+        endif
+    else
+        redraw | echon "vim-go: " | echohl Function | echon "[vet] PASS" | echohl None
+    endif
 endfunction
 
 " vim:ts=4:sw=4:et

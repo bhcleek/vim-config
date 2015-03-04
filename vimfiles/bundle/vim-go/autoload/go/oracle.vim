@@ -56,7 +56,7 @@ func! s:qflistSecond(output)
     " We discard line2 and col2 for the first errorformat, because it's not
     " useful and quickfix only has the ability to show one line and column
     " number
-	let &errorformat = "%f:%l.%c-%.%#:\ %m,%f:%l:%c:\ %m"
+	let &errorformat = "%f:%l.%c-%[%^:]%#:\ %m,%f:%l:%c:\ %m"
 
     " create the quickfix list and open it
     cgetexpr split(a:output, "\n")
@@ -79,16 +79,21 @@ func! s:RunOracle(mode, selected) range abort
     let dname = expand('%:p:h')
     let pkg = go#package#ImportPath(dname)
 
-    if exists('g:go_oracle_scope_file')
-        " let the user defines the scope
-        let sname = shellescape(get(g:, 'go_oracle_scope_file'))
+    if exists('g:go_oracle_scope')
+        " let the user defines the scope, must be a space separated string,
+        " example: 'fmt math net/http'
+        let unescaped_scopes = split(get(g:, 'go_oracle_scope'))
+        let scopes = []
+        for unescaped_scope in unescaped_scopes
+          call add(scopes, shellescape(unescaped_scope))
+        endfor
     elseif exists('g:go_oracle_include_tests') && pkg != -1
         " give import path so it includes all _test.go files too
-        let sname = shellescape(pkg)
+        let scopes = [shellescape(pkg)]
     else
         " best usable way, only pass the package itself, without the test
         " files
-        let sname = join(go#tool#Files(), ' ')
+        let scopes = go#tool#Files()
     endif
 
     "return with a warning if the bin doesn't exist
@@ -100,15 +105,23 @@ func! s:RunOracle(mode, selected) range abort
     if a:selected != -1
         let pos1 = s:getpos(line("'<"), col("'<"))
         let pos2 = s:getpos(line("'>"), col("'>"))
-        let cmd = printf('%s -format plain -pos=%s:#%d,#%d %s %s',
+        let cmd = printf('%s -format plain -pos=%s:#%d,#%d %s',
                     \  bin_path,
-                    \  shellescape(fname), pos1, pos2, a:mode, sname)
+                    \  shellescape(fname), pos1, pos2, a:mode)
     else
         let pos = s:getpos(line('.'), col('.'))
-        let cmd = printf('%s -format plain -pos=%s:#%d %s %s',
+        let cmd = printf('%s -format plain -pos=%s:#%d %s',
                     \  bin_path,
-                    \  shellescape(fname), pos, a:mode, sname)
+                    \  shellescape(fname), pos, a:mode)
     endif
+
+    " now append each scope to the end as Oracle's scope parameter. It can be
+    " a packages or go files, dependent on the User's own choice. For more
+    " info check Oracle's User Manual section about scopes:
+    " https://docs.google.com/document/d/1SLk36YRjjMgKqe490mSRzOPYEDe0Y_WQNRv-EiFYUyw/view#heading=h.nwso96pj07q8
+    for scope in scopes
+      let cmd .= ' ' . scope
+    endfor
 
     echon "vim-go: " | echohl Identifier | echon "analysing ..." | echohl None
 
@@ -176,6 +189,27 @@ endfunction
 " Show all refs to entity denoted by selected identifier
 function! go#oracle#Referrers(selected)
     let out = s:RunOracle('referrers', a:selected)
+
+    " append line contents from Go source file for some messages:
+    " '...: referenced here'
+    " '...: reference to NAME'
+    let lines = split(out, "\n")
+    let extlines = []
+    for line in lines
+        if line =~# '\v: referenced here$|: reference to [^ :]*$'
+            let parts = split(line, ':')
+            " Note: we count -3 from end, to support additional comma in
+            " Windows-style C:\... paths
+            let filename = join(parts[0:-3], ':')
+            let linenum = parts[-2]
+            let extline = line . ': ' . readfile(filename, '', linenum)[linenum-1]
+            call add(extlines, extline)
+        else
+            call add(extlines, line)
+        endif
+    endfor
+    let out = join(extlines, "\n")
+
     call s:qflistSecond(out)
 endfunction
 

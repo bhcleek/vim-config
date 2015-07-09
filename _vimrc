@@ -43,6 +43,7 @@ colorscheme solarized
 set tabstop=2
 set shiftwidth=0
 set shiftround
+set listchars=tab:>.,trail:.,extends:\#,nbsp:. " highlight whitespace
 set number
 set backupskip+=bzr_log*
 set showmatch

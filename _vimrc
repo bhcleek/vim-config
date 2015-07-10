@@ -1,3 +1,6 @@
+scriptencoding utf-8
+set encoding=utf-8
+
 runtime bundle/pathogen/autoload/pathogen.vim
 
 set nocompatible
@@ -43,7 +46,16 @@ colorscheme solarized
 set tabstop=2
 set shiftwidth=0
 set shiftround
-set listchars=tab:>.,trail:.,extends:\#,nbsp:. " highlight whitespace
+
+" Enter the middle-dot by pressing Ctrl-k then .M
+" " Enter the right-angle-quote by pressing Ctrl-k then >>
+" " Enter the Pilcrow mark by pressing Ctrl-k then PI
+" " Enter the ¬ by pressing Ctrl-k then NO
+" " Enter the … by pressing Ctrl-V then u2026
+" :set list listchars=tab:>-,eol:¶
+" " The command :dig displays other digraphs you can use.
+set listchars=tab:\|»,trail:·,extends:…,precedes:…,nbsp:¬,eol:¶ " highlight whitespace
+
 set number
 set backupskip+=bzr_log*
 set showmatch

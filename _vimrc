@@ -14,7 +14,6 @@ Helptags " generate documentation from each directory in runtimepath. Tim Pope s
 " Use Vim settings, rather than Vi settings (much better!).
 " This must be first, because it changes other options as a side effect.
 set nocompatible
-
 " allow backspacing over everything in insert mode
 set backspace=indent,eol,start
 set showmatch
@@ -46,7 +45,7 @@ set incsearch		" do incremental searching
 
 set display=lastline,uhex " display as much of the last line as possible, and display unprintable characters as hex.
 if exists('+breakindent')
-  set breakindent showbreak=\ +
+  set breakindent showbreak=>\ 
 	" set cpoptions+=n " use the column used for line numbers for text of wrapped lines, too
 endif
 set linebreak " break lines at a character in breakat instead of at the last character that fits on the screen

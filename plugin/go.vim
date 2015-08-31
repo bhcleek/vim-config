@@ -23,6 +23,7 @@ command! GoInstallBinaries call s:GoInstallBinaries(-1)
 command! GoUpdateBinaries call s:GoInstallBinaries(1)
 command! -nargs=? -complete=dir GoPath call go#path#GoPath(<f-args>)
 
+
 " GoInstallBinaries downloads and install all necessary binaries stated in the
 " packages variable. It uses by default $GOBIN or $GOPATH/bin as the binary
 " target install directory. GoInstallBinaries doesn't install binaries if they
@@ -61,6 +62,15 @@ function! s:GoInstallBinaries(updateBinaries)
         set noshellslash
     endif
 
+    let cmd = "go get -u -v "
+
+    let s:go_version = matchstr(system("go version"), '\d.\d.\d')
+
+    " https://github.com/golang/go/issues/10791
+    if s:go_version > "1.4.0" && s:go_version < "1.5.0"
+        let cmd .= "-f " 
+    endif
+
     for pkg in s:packages
         let basename = fnamemodify(pkg, ":t")
         let binname = "go_" . basename . "_bin"
@@ -77,7 +87,8 @@ function! s:GoInstallBinaries(updateBinaries)
                 echo "vim-go: ". basename ." not found. Installing ". pkg . " to folder " . go_bin_path
             endif
 
-            let out = system("go get -u -v -f ".shellescape(pkg))
+
+            let out = system(cmd . shellescape(pkg))
             if v:shell_error
                 echo "Error installing ". pkg . ": " . out
             endif

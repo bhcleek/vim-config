@@ -6,8 +6,8 @@ if !exists("g:go_metalinter_enabled")
     let g:go_metalinter_enabled = ['vet', 'golint', 'errcheck']
 endif
 
-if !exists("g:go_metalinter_path")
-    let g:go_metalinter_path = "./..."
+if !exists("g:go_metalinter_deadline")
+    let g:go_metalinter_deadline = "5s"
 endif
 
 if !exists("g:go_golint_bin")
@@ -18,31 +18,33 @@ if !exists("g:go_errcheck_bin")
     let g:go_errcheck_bin = "errcheck"
 endif
 
-function! go#lint#Gometa(path_to_lint) abort
+function! go#lint#Gometa(...) abort
+    if a:0 == 0
+        let goargs = expand('%:p:h')
+    else
+        let goargs = go#util#Shelljoin(a:000)
+    endif
+
     let meta_command = "gometalinter --disable-all"
     if empty(g:go_metalinter_command)
-        let bin_path = go#path#CheckBinPath("gometalinter") 
-        if empty(bin_path) 
-            return 
+        let bin_path = go#path#CheckBinPath("gometalinter")
+        if empty(bin_path)
+            return
         endif
 
         if empty(g:go_metalinter_enabled)
             echohl Error | echomsg "vim-go: please enable linters with the setting g:go_metalinter_enabled" | echohl None
-            return 
+            return
         endif
 
         for linter in g:go_metalinter_enabled
             let meta_command .= " --enable=".linter
         endfor
 
+        " deadline
+        let meta_command .= " --deadline=" . g:go_metalinter_deadline
 
-        " by default we search for all underlying files
-        let path = g:go_metalinter_path
-        if !empty(a:path_to_lint)
-            let path = a:path_to_lint
-        endif
-
-        let meta_command .=  path
+        let meta_command .=  " " . goargs
     else
         " the user wants something else, let us use it.
         let meta_command = g:go_metalinter_command
@@ -58,6 +60,7 @@ function! go#lint#Gometa(path_to_lint) abort
         redraw | echo
         call setqflist([])
         echon "vim-go: " | echohl Function | echon "[metalinter] PASS" | echohl None
+        call go#util#Cwindow()
     else
         " backup users errorformat, will be restored once we are finished
         let old_errorformat = &errorformat
@@ -69,7 +72,9 @@ function! go#lint#Gometa(path_to_lint) abort
 
         " create the quickfix list and open it
         cgetexpr split(out, "\n")
-        cwindow
+        let errors = getqflist()
+        call go#util#Cwindow(len(errors))
+        cc 1
 
         let &errorformat = old_errorformat
     endif
@@ -88,8 +93,17 @@ function! go#lint#Golint(...) abort
     else
         let goargs = go#util#Shelljoin(a:000)
     endif
-    silent cexpr system(bin_path . " " . goargs)
-    cwindow
+
+    let out = system(bin_path . " " . goargs)
+    if empty(out)
+        echon "vim-go: " | echohl Function | echon "[lint] PASS" | echohl None
+        return
+    endif
+
+    cgetexpr out
+    let errors = getqflist()
+    call go#util#Cwindow(len(errors))
+    cc 1
 endfunction
 
 " Vet calls 'go vet' on the current directory. Any warnings are populated in
@@ -108,13 +122,14 @@ function! go#lint#Vet(bang, ...)
         call setqflist([])
     endif
 
-    cwindow
     let errors = getqflist()
+    call go#util#Cwindow(len(errors))
     if !empty(errors) 
         if !a:bang
             cc 1 "jump to first error if there is any
         endif
     else
+        call go#util#Cwindow()
         redraw | echon "vim-go: " | echohl Function | echon "[vet] PASS" | echohl None
     endif
 endfunction
@@ -164,14 +179,16 @@ function! go#lint#Errcheck(...) abort
         if !empty(errors)
             redraw | echo
             call setqflist(errors, 'r')
+            call go#util#Cwindow(len(errors))
+            cc 1 "jump to first error if there is any
         endif
     else
         redraw | echo
         call setqflist([])
+        call go#util#Cwindow()
         echon "vim-go: " | echohl Function | echon "[errcheck] PASS" | echohl None
     endif
 
-    cwindow
 endfunction
 
 " vim:ts=4:sw=4:et

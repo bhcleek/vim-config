@@ -26,7 +26,7 @@ disabled/enabled easily.
 * Change or display `GOPATH` with `:GoPath`
 * Create a coverage profile and display annotated source code in browser to see
   which functions are covered with `:GoCoverage`
-* Call `gometalinter`, which is a tool that invokes all possible linters
+* Call `gometalinter` with `:GoMetaLinter`, which invokes all possible linters
   (golint, vet, errcheck, deadcode, etc..) and shows the warnings/errors
 * Lint your code with `:GoLint`
 * Run your code through `:GoVet` to catch static errors
@@ -63,7 +63,7 @@ Please be sure all necessary binaries are installed (such as `gocode`, `godef`,
 `:GoInstallBinaries` command. If invoked, all necessary binaries will be
 automatically downloaded and installed to your `$GOBIN` environment (if not set
 it will use `$GOPATH/bin`). Note that this command requires `git` for fetching the individual Go
-packages.
+packages. Additionally, use `:GoUpdateBinaries` to update the installed binaries.
 
 ### Optional
 
@@ -199,20 +199,19 @@ let g:go_bin_path = expand("~/.gotools")
 let g:go_bin_path = "/home/fatih/.mypath"      "or give absolute path
 ```
 
+## Using with Syntastic
+Sometimes when using both `vim-go` and `syntastic` Vim will start lagging while saving and opening
+files. The following fixes this:
+
+```vim
+let g:syntastic_go_checkers = ['golint', 'govet', 'errcheck']
+let g:syntastic_mode_map = { 'mode': 'active', 'passive_filetypes': ['go'] }
+```
 
 ## More info
 
 Check out the [Wiki](https://github.com/fatih/vim-go/wiki) page for more information. It includes [Screencasts](https://github.com/fatih/vim-go/wiki/Screencasts), an [FAQ
 section](https://github.com/fatih/vim-go/wiki/FAQ-Troubleshooting), and many other [various pieces](https://github.com/fatih/vim-go/wiki) of information.
-
-## Donations
-
-Vim-go is an open source project that I'm working on in my free time. I'm
-putting in a lot of time and thought to make it stable (fixing bugs, adding new
-features, etc.). If you like vim-go and find it helpful, you might give me a
-gift from some of the books (kindle) I have in my wish list:
-
-[Amazon.com Fatih's Wish List](http://amzn.com/w/3RUTKZC0U30P6). Thanks!
 
 ## Credits
 

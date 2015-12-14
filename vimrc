@@ -1,3 +1,7 @@
+" Use Vim settings, rather than Vi settings (much better!).
+" This must be first, because it changes other options as a side effect.
+set nocompatible
+
 scriptencoding utf-8
 set encoding=utf-8
 
@@ -6,14 +10,59 @@ if v:progname =~? "evim"
   finish
 endif
 
-runtime bundle/pathogen/autoload/pathogen.vim
+if !(has("win64") || has("win32") || has("win16"))
+	" prepend XDG directories to relevant paths
+	if empty($XDG_CACHE_HOME)
+		let $XDG_CACHE_HOME = expand('~/.cache')
+	endif
+	if empty($XDG_CONFIG_HOME)
+		let $XDG_CONFIG_HOME = expand('~/.config')
+	endif
 
+	" directory is the list of directory names for swap files
+	if !isdirectory(expand($XDG_CACHE_HOME . '/vim/swap'))
+		call mkdir(expand($XDG_CACHE_HOME . '/vim/swap'), 'p', 0700)
+	endif
+	" use // to replace path separators in the full file path with %.
+	set directory-=~/tmp
+	set directory-=/var/tmp
+	set directory-=/tmp
+	set directory+=~/tmp//
+	set directory+=/var/tmp//
+	set directory+=/tmp//
+	set directory^=$XDG_CACHE_HOME/vim/swap//
+
+	if !isdirectory(expand($XDG_CACHE_HOME . '/vim/backup'))
+		call mkdir(expand($XDG_CACHE_HOME . '/vim/backup'), 'p', 0700)
+	endif
+	set backupdir^=./.backup
+	set backupdir^=$XDG_CACHE_HOME/vim/backup
+
+	" Double slash does not work for backupdir (see:
+	" https://github.com/vim/vim/issues/179).  Here's a workaround (%:p:h
+	" expands the current file's name to its full path and then removes the last
+	" component, the actual file name).
+	au BufWritePre * let &backupext='@'.substitute(substitute(substitute(expand('%:p:h'), '/', '%', 'g'), '\', '%', 'g'), ':', '', 'g')
+
+	if !isdirectory(expand($XDG_CACHE_HOME . '/vim/undo'))
+		call mkdir(expand($XDG_CACHE_HOME . '/vim/undo'), 'p', 0700)
+	endif
+	set undodir^=$XDG_CACHE_HOME/vim/undo
+
+	set viminfo+=n$XDG_CACHE_HOME/vim/viminfo
+	" use let instead of set so XDG_CACHE_HOME will be evaluated.
+	"let &viminfo .= ',n' . $XDG_CACHE_HOME . '/vim/viminfo'
+
+	set runtimepath-=~/.vim
+	set runtimepath^=$XDG_CONFIG_HOME/vim
+	set runtimepath-=~/.vim/after
+	set runtimepath+=$XDG_CONFIG_HOME/vim/after
+endif
+
+runtime bundle/pathogen/autoload/pathogen.vim
 call pathogen#infect()
 Helptags " generate documentation from each directory in runtimepath. Tim Pope says this is crazy. 
 
-" Use Vim settings, rather than Vi settings (much better!).
-" This must be first, because it changes other options as a side effect.
-set nocompatible
 " allow backspacing over everything in insert mode
 set backspace=indent,eol,start
 set showmatch

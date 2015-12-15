@@ -20,8 +20,8 @@ if !(has("win64") || has("win32") || has("win16"))
 	endif
 
 	" directory is the list of directory names for swap files
-	if !isdirectory(expand($XDG_CACHE_HOME . '/vim/swap'))
-		call mkdir(expand($XDG_CACHE_HOME . '/vim/swap'), 'p', 0700)
+	if !isdirectory($XDG_CACHE_HOME . '/vim/swap')
+		call mkdir($XDG_CACHE_HOME . '/vim/swap', 'p', 0700)
 	endif
 	" use // to replace path separators in the full file path with %.
 	set directory-=~/tmp
@@ -32,8 +32,8 @@ if !(has("win64") || has("win32") || has("win16"))
 	set directory+=/tmp//
 	set directory^=$XDG_CACHE_HOME/vim/swap//
 
-	if !isdirectory(expand($XDG_CACHE_HOME . '/vim/backup'))
-		call mkdir(expand($XDG_CACHE_HOME . '/vim/backup'), 'p', 0700)
+	if !isdirectory($XDG_CACHE_HOME . '/vim/backup')
+		call mkdir($XDG_CACHE_HOME . '/vim/backup', 'p', 0700)
 	endif
 	set backupdir^=./.backup
 	set backupdir^=$XDG_CACHE_HOME/vim/backup
@@ -44,8 +44,8 @@ if !(has("win64") || has("win32") || has("win16"))
 	" component, the actual file name).
 	au BufWritePre * let &backupext='@'.substitute(substitute(substitute(expand('%:p:h'), '/', '%', 'g'), '\', '%', 'g'), ':', '', 'g')
 
-	if !isdirectory(expand($XDG_CACHE_HOME . '/vim/undo'))
-		call mkdir(expand($XDG_CACHE_HOME . '/vim/undo'), 'p', 0700)
+	if !isdirectory($XDG_CACHE_HOME . '/vim/undo')
+		call mkdir($XDG_CACHE_HOME . '/vim/undo', 'p', 0700)
 	endif
 	set undodir^=$XDG_CACHE_HOME/vim/undo
 

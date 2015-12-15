@@ -7,7 +7,13 @@ set encoding=utf-8
 
 " When started as "evim", evim.vim will already have done these settings.
 if v:progname =~? "evim"
-  finish
+	finish
+endif
+
+if has("autocmd")
+		" remove all auto commands in the default group
+		augroup END
+		au!
 endif
 
 if !(has("win64") || has("win32") || has("win16"))
@@ -196,7 +202,7 @@ if has("win64") || has("win32") || has("win16")
 endif
 
 set diffexpr=MyDiff()
-function MyDiff()
+function! MyDiff()
   let opt = '-a --binary '
   if &diffopt =~ 'icase' | let opt = opt . '-i ' | endif
   if &diffopt =~ 'iwhite' | let opt = opt . '-b ' | endif

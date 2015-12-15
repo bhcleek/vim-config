@@ -38,11 +38,18 @@ if !(has("win64") || has("win32") || has("win16"))
 	set backupdir^=./.backup
 	set backupdir^=$XDG_CACHE_HOME/vim/backup
 
-	" Double slash does not work for backupdir (see:
-	" https://github.com/vim/vim/issues/179).  Here's a workaround (%:p:h
-	" expands the current file's name to its full path and then removes the last
-	" component, the actual file name).
-	au BufWritePre * let &backupext='@'.substitute(substitute(substitute(expand('%:p:h'), '/', '%', 'g'), '\', '%', 'g'), ':', '', 'g')
+	if has("autocmd")
+		augroup vimrcXDG
+		au!
+
+		" Double slash does not work for backupdir (see:
+		" https://github.com/vim/vim/issues/179).  Here's a workaround (%:p:h
+		" expands the current file's name to its full path and then removes the last
+		" component, the actual file name).
+		au BufWritePre * let &backupext='@'.substitute(substitute(substitute(expand('%:p:h'), '/', '%', 'g'), '\', '%', 'g'), ':', '', 'g')
+
+		augroup END
+	endif
 
 	if !isdirectory($XDG_CACHE_HOME . '/vim/undo')
 		call mkdir($XDG_CACHE_HOME . '/vim/undo', 'p', 0700)

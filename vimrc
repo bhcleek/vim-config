@@ -76,12 +76,55 @@ runtime bundle/pathogen/autoload/pathogen.vim
 call pathogen#infect()
 Helptags " generate documentation from each directory in runtimepath. Tim Pope says this is crazy. 
 
+" vim-sensible sets several options that should be considered:
+" "" sensible.vim - Defaults everyone can agree on
+" " Maintainer:   Tim Pope <http://tpo.pe/>
+" " Version:      1.1
+" " Use :help 'option' to see the documentation for the given option.
+"
+" set autoindent
+" set complete-=i
+" set smarttab
+"
+" set nrformats-=octal
+"
+" set ttimeout
+" set ttimeoutlen=100
+"
+" " Use <C-L> to clear the highlighting of :set hlsearch.
+" if maparg('<C-L>', 'n') ==# ''
+"   nnoremap <silent> <C-L> :nohlsearch<C-R>=has('diff')?'<Bar>diffupdate':''<CR><CR><C-L>
+" endif
+"
+" set wildmenu
+"
+" if has('path_extra')
+"   setglobal tags-=./tags tags-=./tags; tags^=./tags;
+" endif
+"
+" if !empty(&viminfo)
+"   set viminfo^=!
+" endif
+"
+" " Allow color schemes to do bright colors without forcing bold.
+" if &t_Co == 8 && $TERM !~# '^linux\|^Eterm'
+"   set t_Co=16
+" endif
+"
+" " Load matchit.vim, but only if the user hasn't installed a newer version.
+" if !exists('g:loaded_matchit') && findfile('plugin/matchit.vim', &rtp) ==# ''
+"   runtime! macros/matchit.vim
+" endif
+
+" don't store global options in sessions.
+set sessionoptions-=options
+
 " allow backspacing over everything in insert mode
 set backspace=indent,eol,start
 set showmatch
 
 set tabstop=2
-set shiftwidth=0
+set shiftwidth=0 " TODO(bc): skip this in compatible mode.
 set shiftround " shift to the next multiple of shiftwidth column instead of shifting absolutely.
 
 if has("vms")
@@ -97,13 +140,27 @@ set autowrite " automatically save before commands like :make and :next
 set background=dark
 colorscheme solarized
 
-set history=200		" keep 200 lines of command line history
+"set history=200		" keep 200 lines of command line history
+if &history < 1000
+	set history=1000
+endif
 
 set number " show line numbers
 set laststatus=2 " always show status line
 set ruler		" show the cursor position all the time
 set showcmd		" display incomplete commands
 set incsearch		" do incremental searching
+
+if !&scrolloff
+  set scrolloff=1
+endif
+if !&sidescrolloff
+  set sidescrolloff=5
+endif
+
+if v:version > 703 || v:version == 703 && has("patch541")
+	set formatoptions+=j " Delete comment character when joining commented lines
+endif
 
 set display=lastline,uhex " display as much of the last line as possible, and display unprintable characters as hex.
 if exists('+breakindent')
@@ -132,14 +189,20 @@ map Q gq
 " so that you can undo CTRL-U after inserting a line break.
 inoremap <C-U> <C-G>u<C-U>
 
+" if &tabpagemax < 50
+"   set tabpagemax=50
+" endif
+
 " In many terminal emulators the mouse works just fine, thus enable it.
 if has('mouse')
 	set mouse=a
 endif
 
 " Switch syntax highlighting on, when the terminal has colors
-if &t_Co > 2 || has("gui_running")
-	syntax on
+if has('syntax') && !exists('g:syntax_on')
+	if &t_Co > 2 || has("gui_running")
+		syntax enable
+	endif
 endif
 
 if has("gui_running")
@@ -225,3 +288,5 @@ function! MyDiff()
 	endif
 	silent execute '!' . cmd . ' ' . opt . arg1 . ' ' . arg2 . ' > ' . arg3 . eq
 endfunction
+
+" vim:set ft=vim noet:

@@ -63,8 +63,6 @@ if !(has("win64") || has("win32") || has("win16"))
 	set undodir^=$XDG_CACHE_HOME/vim/undo
 
 	set viminfo+=n$XDG_CACHE_HOME/vim/viminfo
-	" use let instead of set so XDG_CACHE_HOME will be evaluated.
-	"let &viminfo .= ',n' . $XDG_CACHE_HOME . '/vim/viminfo'
 
 	set runtimepath-=~/.vim
 	set runtimepath^=$XDG_CONFIG_HOME/vim
@@ -77,12 +75,6 @@ call pathogen#infect()
 Helptags " generate documentation from each directory in runtimepath. Tim Pope says this is crazy. 
 
 " vim-sensible sets several options that should be considered:
-" "" sensible.vim - Defaults everyone can agree on
-" " Maintainer:   Tim Pope <http://tpo.pe/>
-" " Version:      1.1
-" " Use :help 'option' to see the documentation for the given option.
-"
-" set autoindent
 " set complete-=i
 " set smarttab
 "
@@ -102,15 +94,6 @@ Helptags " generate documentation from each directory in runtimepath. Tim Pope s
 "   setglobal tags-=./tags tags-=./tags; tags^=./tags;
 " endif
 "
-" if !empty(&viminfo)
-"   set viminfo^=!
-" endif
-"
-" " Allow color schemes to do bright colors without forcing bold.
-" if &t_Co == 8 && $TERM !~# '^linux\|^Eterm'
-"   set t_Co=16
-" endif
-"
 " " Load matchit.vim, but only if the user hasn't installed a newer version.
 " if !exists('g:loaded_matchit') && findfile('plugin/matchit.vim', &rtp) ==# ''
 "   runtime! macros/matchit.vim
@@ -118,6 +101,13 @@ Helptags " generate documentation from each directory in runtimepath. Tim Pope s
 
 " don't store global options in sessions.
 set sessionoptions-=options
+
+" save and restore all global variables, regardless of casing
+if !empty(&viminfo)
+  set viminfo^=!
+endif
+
+set autoindent
 
 " allow backspacing over everything in insert mode
 set backspace=indent,eol,start
@@ -137,10 +127,6 @@ set backupskip+=bzr_log*
 
 set autowrite " automatically save before commands like :make and :next
 
-set background=dark
-colorscheme solarized
-
-"set history=200		" keep 200 lines of command line history
 if &history < 1000
 	set history=1000
 endif
@@ -198,6 +184,14 @@ if has('mouse')
 	set mouse=a
 endif
 
+set background=dark
+colorscheme solarized
+
+" Allow color schemes to do bright colors without forcing bold.
+if &t_Co == 8 && $TERM !~# '^linux\|^Eterm'
+ set t_Co=16
+endif
+
 " Switch syntax highlighting on, when the terminal has colors
 if has('syntax') && !exists('g:syntax_on')
 	if &t_Co > 2 || has("gui_running")
@@ -236,11 +230,6 @@ if has("autocmd")
 	autocmd BufNewFile,BufRead *.json set ft=javascript
 
 	augroup END
-
-else
-
-	set autoindent		" always set autoindenting on
-
 endif " has("autocmd")
 
 " Convenient command to see the difference between the current buffer and the

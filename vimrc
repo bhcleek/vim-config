@@ -88,8 +88,6 @@ Helptags " generate documentation from each directory in runtimepath. Tim Pope s
 "   nnoremap <silent> <C-L> :nohlsearch<C-R>=has('diff')?'<Bar>diffupdate':''<CR><CR><C-L>
 " endif
 "
-" set wildmenu
-"
 " if has('path_extra')
 "   setglobal tags-=./tags tags-=./tags; tags^=./tags;
 " endif
@@ -114,28 +112,29 @@ set backspace=indent,eol,start
 set showmatch
 
 set tabstop=2
-set shiftwidth=0 " TODO(bc): skip this in compatible mode.
-set shiftround " shift to the next multiple of shiftwidth column instead of shifting absolutely.
+set shiftwidth=0 	" TODO(bc): skip this in compatible mode.
+set shiftround 		" shift to the next multiple of shiftwidth column instead of shifting absolutely.
 
 if has("vms")
 	set nobackup		" do not keep a backup file, use versions instead
 else
-	set backup		" keep a backup file (restore to previous version)
+	set backup			" keep a backup file (restore to previous version)
 	set undofile		" keep an undo file (undo changes after closing)
 endif
 set backupskip+=bzr_log*
 
-set autowrite " automatically save before commands like :make and :next
+set autowrite 		" automatically save before commands like :make and :next
 
 if &history < 1000
 	set history=1000
 endif
 
-set number " show line numbers
-set laststatus=2 " always show status line
-set ruler		" show the cursor position all the time
-set showcmd		" display incomplete commands
-set incsearch		" do incremental searching
+set number 				" show line numbers
+set laststatus=2	" always show status line
+set ruler					" show the cursor position all the time
+set showcmd				" display incomplete commands
+set incsearch			" do incremental searching
+set wildmenu 			" enhance command line completion
 
 if !&scrolloff
   set scrolloff=1

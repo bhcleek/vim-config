@@ -133,7 +133,6 @@ endif
 set number 				" show line numbers
 set laststatus=2	" always show status line
 set ruler					" show the cursor position all the time
-set statusline=%{fugitive#statusline()}\ %<%f\ %h%m%r%=%-14.(%l,%c%V%)\ %P "show the git branch on the status line followed by an emulation of 'ruler'
 set showcmd				" display incomplete commands
 set incsearch			" do incremental searching
 set wildmenu 			" enhance command line completion

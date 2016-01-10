@@ -251,7 +251,7 @@ if has("win64") || has("win32") || has("win16")
 	source $VIMRUNTIME/mswin.vim
 	behave mswin
 
-set diffexpr=MyDiff()
+	set diffexpr=MyDiff()
 	function! MyDiff()
 		let opt = '-a --binary '
 		if &diffopt =~ 'icase' | let opt = opt . '-i ' | endif

@@ -4,10 +4,10 @@ if exists("loaded_nerd_tree")
 
 	let startInDir=0
 	if argc() == 1 
-		if isdirectory(fnameescape(argv(0)))
+		if isdirectory(argv(0))
 			let startInDir=1
 		endif
-		cd `=fnamemodify(fnameescape(argv(0)), ":p:h")`
+		cd `=fnamemodify(argv(0), ":p:h")`
 	endif
 
 	autocmd VimEnter * NERDTree

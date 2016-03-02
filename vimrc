@@ -137,6 +137,9 @@ set showcmd				" display incomplete commands
 set incsearch			" do incremental searching
 set wildmenu 			" enhance command line completion
 
+
+set cursorline
+set cursorcolumn
 if !&scrolloff
   set scrolloff=1
 endif

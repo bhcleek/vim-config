@@ -28,8 +28,21 @@ function! go#coverage#Buffer(bang, ...)
         return -1
     endif
 
+    " check if there is any test file, if not we just return
+    let cd = exists('*haslocaldir') && haslocaldir() ? 'lcd ' : 'cd '
+    let dir = getcwd()
+    try
+        execute cd . fnameescape(expand("%:p:h"))
+        if empty(glob("*_test.go"))
+            call go#util#EchoError("no tests files available")
+            return
+        endif
+    finally
+        execute cd . fnameescape(dir)
+    endtry
+
     let s:toggle = 1
-    let l:tmpname=tempname()
+    let l:tmpname = tempname()
     let args = [a:bang, 0, "-coverprofile", l:tmpname]
 
     if a:0
@@ -54,7 +67,7 @@ function! go#coverage#Buffer(bang, ...)
         return
     endif
 
-    if !v:shell_error
+    if go#util#ShellError() == 0
         call go#coverage#overlay(l:tmpname)
     endif
 
@@ -63,7 +76,10 @@ endfunction
 
 " Clear clears and resets the buffer annotation matches
 function! go#coverage#Clear()
-    if exists("g:syntax_on") | syntax enable | endif
+    " only reset the syntax if the user has syntax enabled
+    if !empty(&syntax)
+        if exists("g:syntax_on") | syntax enable | endif
+    endif
 
     if exists("s:toggle") | let s:toggle = 0 | endif
 
@@ -78,7 +94,7 @@ endfunction
 " Browser creates a new cover profile with 'go test -coverprofile' and opens
 " a new HTML coverage page from that profile in a new browser
 function! go#coverage#Browser(bang, ...)
-    let l:tmpname=tempname()
+    let l:tmpname = tempname()
     let args = [a:bang, 0, "-coverprofile", l:tmpname]
 
     if a:0
@@ -90,7 +106,7 @@ function! go#coverage#Browser(bang, ...)
         let s:coverage_browser_handler_jobs[id] = l:tmpname
         return
     endif
-    if !v:shell_error
+    if go#util#ShellError() == 0
         let openHTML = 'go tool cover -html='.l:tmpname
         call go#tool#ExecuteInDir(openHTML)
     endif
@@ -218,9 +234,9 @@ function! go#coverage#overlay(file)
     endfor
 
     syntax manual
-    highlight normaltext term=bold ctermfg=59 guifg=#75715E
-    highlight covered term=bold ctermfg=118 guifg=#A6E22E
-    highlight uncover term=bold ctermfg=197 guifg=#F92672
+    highlight normaltext term=bold ctermfg=darkgrey guifg=#75715E
+    highlight covered term=bold ctermfg=green guifg=#A6E22E
+    highlight uncover term=bold ctermfg=red guifg=#F92672
 
     " clear the matches if we leave the buffer
     autocmd BufWinLeave <buffer> call go#coverage#Clear()

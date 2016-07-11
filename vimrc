@@ -113,7 +113,11 @@ set backspace=indent,eol,start
 set showmatch
 
 set tabstop=2
-set shiftwidth=0 	" TODO(bc): skip this in compatible mode.
+if &compatible
+	set shiftwidth=0
+else
+	set shiftwidth=2
+endif
 set shiftround 		" shift to the next multiple of shiftwidth column instead of shifting absolutely.
 
 if has("vms")

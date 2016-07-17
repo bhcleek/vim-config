@@ -12,9 +12,8 @@ command! -range=% GoFreevars call go#guru#Freevars(<count>)
 command! -range=% GoChannelPeers call go#guru#ChannelPeers(<count>)
 command! -range=% GoReferrers call go#guru#Referrers(<count>)
 command! -nargs=? GoGuruTags call go#guru#Tags(<f-args>)
-
-" TODO(arslan): enable this once the function is implemented
-" command! -range=% GoSameIds call go#guru#SameIds(<count>)
+command! -range=% GoSameIds call go#guru#SameIds(<count>)
+command! -range=0 GoSameIdsClear call go#guru#ClearSameIds()
 
 " -- tool
 command! -nargs=0 GoFiles echo go#tool#Files()
@@ -76,4 +75,4 @@ endif
 " -- impl
 command! -nargs=* -buffer -complete=customlist,go#impl#Complete GoImpl call go#impl#Impl(<f-args>)
 
-" vim:ts=4:sw=4:et
+" vim: sw=2 ts=2 et

@@ -72,8 +72,8 @@ func! s:RunGuru(mode, format, selected, needs_scope) range abort
     let scopes = go#util#Shelllist(scopes)
 
     " guru expect a comma-separated list of patterns, construct it
-    let scope = join(scopes, ",")
-    let command .= printf(" -scope %s", scope)
+    let l:scope = join(scopes, ",")
+    let command .= printf(" -scope %s", l:scope)
   endif
 
   let pos = printf("#%s", go#util#OffsetCursor())
@@ -91,7 +91,9 @@ func! s:RunGuru(mode, format, selected, needs_scope) range abort
   let old_gopath = $GOPATH
   let $GOPATH = go#path#Detect()
 
-  if a:mode !=# 'what'
+  if a:needs_scope
+    call go#util#EchoProgress("analysing with scope ". l:scope . " ...")
+  elseif a:mode !=# 'what'
     " the query might take time, let us give some feedback
     call go#util#EchoProgress("analysing ...")
   endif
@@ -174,6 +176,23 @@ function! go#guru#Tags(...)
   else
     call go#util#EchoSuccess("current guru tags: ". a:1)
   endif
+endfunction
+
+" Report the possible constants, global variables, and concrete types that may
+" appear in a value of type error
+function! go#guru#Whicherrs(selected)
+  let out = s:RunGuru('whicherrs', 'plain', a:selected, 1)
+  if has_key(out, 'err')
+    call go#util#EchoError(out.err)
+    return
+  endif
+
+  if empty(out.out)
+    call go#util#EchoSuccess("no error variables found. Try to change the scope with :GoGuruScope")
+    return
+  endif
+
+  call s:loclistSecond(out.out)
 endfunction
 
 " Show 'implements' relation for selected package
@@ -271,16 +290,11 @@ function! go#guru#Referrers(selected)
 endfunction
 
 function! go#guru#What(selected)
-  " nvim doesn't have JSON support, though they work on it:
-  " https://github.com/neovim/neovim/pull/4131
-  if has('nvim')
-    return {'err': "GoWhat is not supported in Neovim"}
-  endif
-
-  " json_encode() and friends are introduced with this patch
-  " https://groups.google.com/d/msg/vim_dev/vLupTNhQhZ8/cDGIk0JEDgAJ
-  if !has('patch-7.4.1304')
-    return {'err': "GoWhat is supported with Vim version 7.4-1304 or later"}
+  " json_encode() and friends are introduced with this patch (7.4.1304)
+  " vim: https://groups.google.com/d/msg/vim_dev/vLupTNhQhZ8/cDGIk0JEDgAJ
+  " nvim: https://github.com/neovim/neovim/pull/4131        
+  if !exists("*json_decode")
+    return {'err': "GoWhat is not supported due old version of Vim/Neovim"}
   endif
 
   let out = s:RunGuru('what', 'json', a:selected, 0)
@@ -297,7 +311,26 @@ function! go#guru#What(selected)
   return result
 endfunction
 
+function! go#guru#AutoToogleSameIds()
+  if get(g:, "go_auto_sameids", 0)
+    call go#util#EchoProgress("sameids auto highlighting disabled")
+    call go#guru#ClearSameIds()
+    let g:go_auto_sameids = 0
+    return
+  endif
+
+  call go#util#EchoSuccess("sameids auto highlighting enabled")
+  let g:go_auto_sameids = 1
+endfunction
+
 function! go#guru#SameIds(selected)
+  " we use matchaddpos() which was introduce with 7.4.330, be sure we have
+  " it: http://ftp.vim.org/vim/patches/7.4/7.4.330
+  if !exists("*matchaddpos")
+    call go#util#EchoError("GoSameIds is supported with Vim version 7.4-330 or later")
+    return
+  endif
+
   let result = go#guru#What(a:selected)
 
   call go#guru#ClearSameIds() " run after calling guru to reduce flicker.
@@ -342,6 +375,14 @@ function! go#guru#ClearSameIds()
       call matchdelete(item['id'])
     endif
   endfor
+endfunction
+
+function! go#guru#ToggleSameIds(selected)
+  if len(getmatches()) != 0 
+    call go#guru#ClearSameIds()
+  else
+    call go#guru#SameIds(a:selected)
+  endif
 endfunction
 
 " vim: sw=2 ts=2 et

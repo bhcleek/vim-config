@@ -285,4 +285,7 @@ if has("win64") || has("win32") || has("win16")
 
 	cd ~\Documents
 endif
+
+let g:airline_powerline_fonts = 1
+
 " vim:set ft=vim noet:

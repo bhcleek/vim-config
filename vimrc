@@ -11,9 +11,9 @@ if v:progname =~? "evim"
 endif
 
 if has("autocmd")
-		" remove all auto commands in the default group
-		augroup END
-		au!
+	" remove all auto commands in the default group
+	augroup END
+	au!
 endif
 
 if !(has("win64") || has("win32") || has("win16"))
@@ -72,7 +72,7 @@ endif
 
 runtime bundle/pathogen/autoload/pathogen.vim
 call pathogen#infect()
-Helptags " generate documentation from each directory in runtimepath. Tim Pope says this is crazy. 
+Helptags " generate documentation from each directory in runtimepath. Tim Pope says this is crazy.
 
 " Most of what vim-sensible does has been incorporated already, but
 " vim-sensible sets several other options that should be considered:
@@ -86,16 +86,16 @@ Helptags " generate documentation from each directory in runtimepath. Tim Pope s
 "
 " " Use <C-L> to clear the highlighting of :set hlsearch.
 " if maparg('<C-L>', 'n') ==# ''
-"   nnoremap <silent> <C-L> :nohlsearch<C-R>=has('diff')?'<Bar>diffupdate':''<CR><CR><C-L>
+"		nnoremap <silent> <C-L> :nohlsearch<C-R>=has('diff')?'<Bar>diffupdate':''<CR><CR><C-L>
 " endif
 "
 " if has('path_extra')
-"   setglobal tags-=./tags tags-=./tags; tags^=./tags;
+"		setglobal tags-=./tags tags-=./tags; tags^=./tags;
 " endif
 "
 " " Load matchit.vim, but only if the user hasn't installed a newer version.
 " if !exists('g:loaded_matchit') && findfile('plugin/matchit.vim', &rtp) ==# ''
-"   runtime! macros/matchit.vim
+"		runtime! macros/matchit.vim
 " endif
 
 " don't store global options in sessions.
@@ -103,7 +103,7 @@ set sessionoptions-=options
 
 " save and restore all global variables, regardless of casing
 if !empty(&viminfo)
-  set viminfo^=!
+	set viminfo^=!
 endif
 
 set autoindent
@@ -145,10 +145,10 @@ set wildmenu 			" enhance command line completion
 set cursorline
 set cursorcolumn
 if !&scrolloff
-  set scrolloff=1
+	set scrolloff=1
 endif
 if !&sidescrolloff
-  set sidescrolloff=5
+	set sidescrolloff=5
 endif
 
 if v:version > 703 || v:version == 703 && has("patch541")
@@ -183,7 +183,7 @@ map Q gq
 inoremap <C-U> <C-G>u<C-U>
 
 " if &tabpagemax < 50
-"   set tabpagemax=50
+"	set tabpagemax=50
 " endif
 
 " In many terminal emulators the mouse works just fine, thus enable it.
@@ -196,7 +196,7 @@ colorscheme solarized
 
 " Allow color schemes to do bright colors without forcing bold.
 if &t_Co == 8 && $TERM !~# '^linux\|^Eterm'
- set t_Co=16
+	set t_Co=16
 endif
 
 " Switch syntax highlighting on, when the terminal has colors
@@ -286,6 +286,24 @@ if has("win64") || has("win32") || has("win16")
 	cd ~\Documents
 endif
 
+function GoStatusline()
+	if !exists('*go#statusline#Show')
+		return ''
+	endif
+
+	return go#statusline#Show()
+endfunction
+call airline#parts#define_function('go','GoStatusline')
+call airline#parts#define_condition('go', '&filetype=="go"')
+let g:airline_section_x = airline#section#create_right(['go', 'tagbar', 'filetype'])
 let g:airline_powerline_fonts = 1
+
+function NormalStatusline()
+	let l:statusline = &statusline
+
+	if strlen(l:statusline) == 0
+		let &statusline = '%<%f %h%w%m%r%#goStatuslineColor#%{go#statusline#Show()}%*%=%-14.(%l,%c%V%) %P' " emulate 'ruler'
+	endif
+endfunction
 
 " vim:set ft=vim noet:

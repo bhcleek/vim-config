@@ -1,9 +1,6 @@
 if exists('g:loaded_fugitive')
-	let s:status = &statusline
-  if strlen(s:status) == 0
-		let s:status = '%<%f %h%w%m%r%=%-14.(%l,%c%V%) %P' " emulate 'ruler'
-	endif
-	let &statusline = '%{fugitive#statusline()} ' . s:status
+	call NormalStatusline()
+	let &statusline='%{fugitive#statusline()} ' . &statusline
 
 	" delete fugitive buffers when they're hidden
 	autocmd BufReadPost fugitive://* set bufhidden=delete

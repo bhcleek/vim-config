@@ -70,6 +70,14 @@ if !(has("win64") || has("win32") || has("win16"))
 	set runtimepath+=$XDG_CONFIG_HOME/vim/after
 endif
 
+function NormalStatusline()
+	let l:statusline = &statusline
+
+	if strlen(l:statusline) == 0
+		let &statusline = '%<%f %h%w%m%r%#goStatuslineColor#%{go#statusline#Show()}%*%=%-14.(%l,%c%V%) %P' " emulate 'ruler'
+	endif
+endfunction
+
 runtime bundle/pathogen/autoload/pathogen.vim
 call pathogen#infect()
 Helptags " generate documentation from each directory in runtimepath. Tim Pope says this is crazy.
@@ -286,24 +294,6 @@ if has("win64") || has("win32") || has("win16")
 	cd ~\Documents
 endif
 
-function GoStatusline()
-	if !exists('*go#statusline#Show')
-		return ''
-	endif
-
-	return go#statusline#Show()
-endfunction
-call airline#parts#define_function('go','GoStatusline')
-call airline#parts#define_condition('go', '&filetype=="go"')
-let g:airline_section_x = airline#section#create_right(['go', 'tagbar', 'filetype'])
 let g:airline_powerline_fonts = 1
-
-function NormalStatusline()
-	let l:statusline = &statusline
-
-	if strlen(l:statusline) == 0
-		let &statusline = '%<%f %h%w%m%r%#goStatuslineColor#%{go#statusline#Show()}%*%=%-14.(%l,%c%V%) %P' " emulate 'ruler'
-	endif
-endfunction
 
 " vim:set ft=vim noet:

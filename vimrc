@@ -68,6 +68,8 @@ if !(has("win64") || has("win32") || has("win16"))
 	set runtimepath^=$XDG_CONFIG_HOME/vim
 	set runtimepath-=~/.vim/after
 	set runtimepath+=$XDG_CONFIG_HOME/vim/after
+
+	let &packpath = &runtimepath
 endif
 
 function NormalStatusline()

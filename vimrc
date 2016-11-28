@@ -71,13 +71,22 @@ if !(has("win64") || has("win32") || has("win16"))
 endif
 
 function NormalStatusline()
-	let l:statusline = &statusline
-
-	if strlen(l:statusline) == 0
-		let &statusline = '%<%f %h%w%m%r%#goStatuslineColor#%{go#statusline#Show()}%*%=%-14.(%l,%c%V%) %P' " emulate 'ruler'
+	" emulate 'ruler'
+	let l:statusline=''
+	if exists('*fugitive#statusline')
+		let l:statusline = '%{fugitive#statusline()} '
 	endif
+
+	let l:statusline .= '%<%f %h%w%m%r'
+	if &filetype == 'go' && exists('*go#statusline#Show')
+		let l:statusline .= '%#goStatuslineColor#%{go#statusline#Show()}%*'
+	endif
+	let l:statusline .= '%=%-14.(%l,%c%V%) %P'
+
+	return l:statusline
 endfunction
 
+set statusline=%!NormalStatusline()
 runtime bundle/pathogen/autoload/pathogen.vim
 call pathogen#infect()
 Helptags " generate documentation from each directory in runtimepath. Tim Pope says this is crazy.

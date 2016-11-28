@@ -15,6 +15,4 @@ call airline#parts#define_function('go', s:gsl)
 call airline#parts#define_condition('go', '&filetype=="go"')
 let g:airline_section_gutter = airline#section#create(['go', '%='])
 
-autocmd User AirlineToggledOff call NormalStatusline()
-
 " vim:ts=2:sw=2:et

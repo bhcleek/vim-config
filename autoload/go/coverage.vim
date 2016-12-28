@@ -85,10 +85,7 @@ endfunction
 
 " Clear clears and resets the buffer annotation matches
 function! go#coverage#Clear() abort
-  " only reset the syntax if the user has syntax enabled
-  if !empty(&syntax)
-    if exists("g:syntax_on") | syntax enable | endif
-  endif
+  call clearmatches()
 
   if exists("s:toggle") | let s:toggle = 0 | endif
 
@@ -96,8 +93,6 @@ function! go#coverage#Clear() abort
   if exists("#BufWinLeave#<buffer>") 
     autocmd! BufWinLeave <buffer>
   endif
-
-  call clearmatches()
 endfunction
 
 " Browser creates a new cover profile with 'go test -coverprofile' and opens
@@ -256,8 +251,6 @@ function! go#coverage#overlay(file) abort
     call extend(matches, go#coverage#genmatch(cov))
   endfor
 
-  syntax manual
-
   " clear the matches if we leave the buffer
   autocmd BufWinLeave <buffer> call go#coverage#Clear()
 
@@ -275,7 +268,7 @@ function s:coverage_job(args)
   " autowrite is not enabled for jobs
   call go#cmd#autowrite()
 
-  let import_path =  go#package#ImportPath(expand('%:p:h'))
+  let status_dir =  expand('%:p:h')
   function! s:error_info_cb(job, exit_status, data) closure
     let status = {
           \ 'desc': 'last status',
@@ -287,10 +280,10 @@ function s:coverage_job(args)
       let status.state = "failed"
     endif
 
-    call go#statusline#Update(import_path, status)
+    call go#statusline#Update(status_dir, status)
   endfunction
 
-  let a:args.error_info_cb = function('s:error_info_cb')
+  let a:args.error_info_cb = funcref('s:error_info_cb')
   let callbacks = go#job#Spawn(a:args)
 
   let start_options = {
@@ -308,7 +301,7 @@ function s:coverage_job(args)
   let jobdir = fnameescape(expand("%:p:h"))
   execute cd . jobdir
 
-  call go#statusline#Update(import_path, {
+  call go#statusline#Update(status_dir, {
         \ 'desc': "current status",
         \ 'type': "coverage",
         \ 'state': "started",

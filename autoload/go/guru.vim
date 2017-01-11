@@ -1,6 +1,6 @@
 "  guru.vim -- Vim integration for the Go guru.
 
-" guru_cmd returns a dict that contains the command to execute guru. option
+" guru_cmd returns a dict that contains the command to execute guru. args
 " is dict with following options:
 "  mode        : guru mode, such as 'implements'
 "  format      : output format, either 'plain' or 'json'
@@ -542,7 +542,7 @@ function! go#guru#ClearSameIds() abort
   endfor
 
   " remove the autocmds we defined
-  if exists("#BufWinEnter<buffer>")
+  if exists("#BufWinEnter#<buffer>")
     autocmd! BufWinEnter <buffer>
   endif
 endfunction

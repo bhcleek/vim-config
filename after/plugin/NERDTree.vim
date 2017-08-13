@@ -16,6 +16,6 @@ if exists("loaded_nerd_tree")
 	autocmd VimEnter * if !exists("s:std_in") | NERDTree | wincmd w | if startInDir == 1 | enew | wincmd w | endif | endif
 
 	" quit if NERDTree is the only window open
-	autocmd BufEnter * if (winnr("$") == 1 && exists("b:NERDTreeType") && b:NERDTreeType == "primary") | q | endif
-	"autocmd BufEnter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif
+	"autocmd BufEnter * if (winnr("$") == 1 && exists("b:NERDTreeType") && b:NERDTreeType == "primary") | q | endif
+	autocmd BufEnter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif
 endif

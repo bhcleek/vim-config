@@ -89,9 +89,9 @@ function NormalStatusline()
 endfunction
 
 set statusline=%!NormalStatusline()
-runtime bundle/pathogen/autoload/pathogen.vim
-call pathogen#infect()
-Helptags " generate documentation from each directory in runtimepath. Tim Pope says this is crazy.
+"runtime bundle/pathogen/autoload/pathogen.vim
+"call pathogen#infect()
+"Helptags " generate documentation from each directory in runtimepath. Tim Pope says this is crazy.
 
 " Most of what vim-sensible does has been incorporated already, but
 " vim-sensible sets several other options that should be considered:

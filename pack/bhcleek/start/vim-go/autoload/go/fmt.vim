@@ -127,10 +127,23 @@ function! go#fmt#update_file(source, target)
   let &fileformat = old_fileformat
   let &syntax = &syntax
 
-  " clean up previous location list
-  let l:listtype = go#list#Type("quickfix")
-  call go#list#Clean(l:listtype)
-  call go#list#Window(l:listtype)
+  " the title information was introduced with 7.4-2200
+  " https://github.com/vim/vim/commit/d823fa910cca43fec3c31c030ee908a14c272640
+  if !has('patch-7.4-2200')
+    return
+  endif
+
+  " clean up previous list
+  let l:listtype = go#list#Type("GoFmt", "locationlist")
+  if l:listtype == "quickfix"
+    let l:list_title = getqflist({'title': 1})
+  else
+    let l:list_title = getloclist(0, {'title': 1})
+  endif
+  if has_key(l:list_title, "title") && l:list_title['title'] == "Format"
+    call go#list#Clean(l:listtype)
+    call go#list#Window(l:listtype)
+  endif
 endfunction
 
 " run runs the gofmt/goimport command for the given source file and returns
@@ -235,7 +248,7 @@ endfunction
 " show_errors opens a location list and shows the given errors. If the given
 " errors is empty, it closes the the location list
 function! s:show_errors(errors) abort
-  let l:listtype = go#list#Type("quickfix")
+  let l:listtype = go#list#Type("GoFmt", "locationlist")
   if !empty(a:errors)
     call go#list#Populate(l:listtype, a:errors, 'Format')
     echohl Error | echomsg "Gofmt returned error" | echohl None

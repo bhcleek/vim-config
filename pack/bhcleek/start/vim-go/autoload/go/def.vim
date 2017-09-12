@@ -155,9 +155,11 @@ function! go#def#jump_to_declaration(out, mode, bin_name) abort
       endif
 
       if a:mode == "tab"
-        let &switchbuf = "usetab"
+        let &switchbuf = "useopen,usetab,newtab"
         if bufloaded(filename) == 0
           tab split
+        else
+           let cmd = 'sbuf'
         endif
       elseif a:mode == "split"
         split
@@ -166,7 +168,7 @@ function! go#def#jump_to_declaration(out, mode, bin_name) abort
       endif
 
       " open the file and jump to line and column
-      exec cmd fnameescape(filename)
+      exec cmd fnameescape(fnamemodify(filename, ':.'))
     endif
   endif
   call cursor(line, col)

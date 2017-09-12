@@ -3,7 +3,7 @@ Installation
 
 VIM directory
 -------------
-Checkout and create a link to the repository in your home directory. On \*nix: `ln -s $PWD ~/.vim`. On Windows `cmd /c mklink /J %USERPROFILE%\vimfiles $PWD`.
+Checkout and create a link to the repository in your XDG_CONFIG_DIRECTORY on *nix or home directory on Windows. On \*nix: `ln -s $PWD ~/.config/vim`. On Windows `cmd /c mklink /J %USERPROFILE%\vimfiles $PWD`.
 
 vimrc
 -----

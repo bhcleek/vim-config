@@ -34,8 +34,7 @@ function! s:guru_cmd(args) range abort
 
   let filename = fnamemodify(expand("%"), ':p:gs?\\?/?')
   if &modified
-    let content  = join(go#util#GetLines(), "\n")
-    let result.stdin_content = filename . "\n" . strlen(content) . "\n" . content
+    let result.stdin_content = go#util#archive()
     call add(cmd, "-modified")
   endif
 
@@ -112,7 +111,8 @@ function! s:sync_guru(args) abort
 
   if !has_key(a:args, 'disable_progress')
     if a:args.needs_scope
-      call go#util#EchoProgress("analysing with scope ". result.scope . " ...")
+      call go#util#EchoProgress("analysing with scope ". result.scope .
+            \ " (see ':help go-guru-scope' if this doesn't work)...")
     elseif a:args.mode !=# 'what'
       " the query might take time, let us give some feedback
       call go#util#EchoProgress("analysing ...")
@@ -150,7 +150,8 @@ function! s:async_guru(args) abort
 
   if !has_key(a:args, 'disable_progress')
     if a:args.needs_scope
-      call go#util#EchoProgress("analysing with scope ". result.scope . " ...")
+      call go#util#EchoProgress("analysing with scope " . result.scope .
+            \ " (see ':help go-guru-scope' if this doesn't work)...")
     endif
   endif
 
@@ -590,7 +591,7 @@ function! s:parse_guru_output(exit_val, output, title) abort
 
   let old_errorformat = &errorformat
   let errformat = "%f:%l.%c-%[%^:]%#:\ %m,%f:%l:%c:\ %m"
-  let l:listtype = go#list#Type("_guru", "locationlist")
+  let l:listtype = go#list#Type("_guru")
   call go#list#ParseFormat(l:listtype, errformat, a:output, a:title)
   let &errorformat = old_errorformat
 

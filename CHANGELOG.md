@@ -1,11 +1,19 @@
 ## unplanned
 
+## 1.15 - (October 3, 2017)
+
+FEATURES:
+
+* Add `:GoFillStruct` to fill a struct with all fields; uses
+  [`fillstruct`](https://github.com/davidrjenni/reftools/tree/master/cmd/fillstruct)
+  [[GH-1443]](https://github.com/fatih/vim-go/pull/1443).
+
 IMPROVEMENTS:
 
 * `:GoAddTags` and `:GoRemoveTags` now continue to process if there are
   malformed individual struct tags (run `:GoUpdateBinaries` to update
   `gomodifiytags` binary) [[GH-1401]](https://github.com/fatih/vim-go/pull/1401)
-* `:GoAddTags` and `:GoRemoveTags` now shows a quickfix window if there are
+* `:GoAddTags` and `:GoRemoveTags` now shows a location list if there are
   malformed struct tags (run `:GoUpdateBinaries` to update `gomodifiytags`
   binary) [[GH-1401]](https://github.com/fatih/vim-go/pull/1401)
 * Add folding of the package-level comment (enabled by default) and/or any
@@ -15,27 +23,37 @@ IMPROVEMENTS:
   easier to use [[GH-1386]](https://github.com/fatih/vim-go/pull/1386)
 * `:GoDef` sets the path of new buffers as relative to the current directory
   when appropriate, instead of always using the full path [[GH-1277]](https://github.com/fatih/vim-go/pull/1277).
-* Syntax highlighting for variable declarations (disabled by default) [[GH-1426]](https://github.com/fatih/vim-go/pull/1426).
-* Add support for `:GoDecls[Dir]` in [unite.vim](https://github.com/Shougo/unite.vim) [[GH-1391]](https://github.com/fatih/vim-go/pull/1391).
+* Syntax highlighting for variable declarations and assignments (disabled by default)
+  [[GH-1426]](https://github.com/fatih/vim-go/pull/1426) and
+  [[GH-1458]](https://github.com/fatih/vim-go/pull/1458).
+* Add support for `:GoDecls[Dir]` in [unite.vim](https://github.com/Shougo/unite.vim)
+  [[GH-1391]](https://github.com/fatih/vim-go/pull/1391).
+* Add support for [fzf.vim](https://github.com/junegunn/fzf.vim) in
+  `GoDecls[Dir]`.
+  [[GH-1437]](https://github.com/fatih/vim-go/pull/1437).
 * Support relative imports for `:GoImpl` [[GH-1322]](https://github.com/fatih/vim-go/pull/1322).
 * A new `g:go_list_type_commands` setting is added to individually set the list type for each command [[GH-1415]](https://github.com/fatih/vim-go/pull/1415). As en example:
 
-```
-let g:go_list_type_commands = {"GoBuild": "quickfix", "GoTest": "locationlist"}
-```
+        let g:go_list_type_commands = {"GoBuild": "quickfix", "GoTest": "locationlist"}
+* Show unexpected errors better by expanding newlines and tabs
+  [[GH-1456]](https://github.com/fatih/vim-go/pull/1456).
+* `:GoInstallBinaries` and `:GoUpdateBinaries` can now install/update only the
+  selected binaries (e.g. `:GoUpdateBinaries guru golint`)
+  [[GH-1467]](https://github.com/fatih/vim-go/pull/1467).
 
 BUG FIXES:
 
+* `:GoFmt` now (again) uses `locationlist` to show formatting errors instead of
+  `quickfix`. To change back to `locationlist` you can change it with the
+  setting `let g:go_list_type_commands = { "GoFmt": locationlist" }` [[GH-1415]](https://github.com/fatih/vim-go/pull/1415)
 * Include comments in import block when folding is enabled [[GH-1387]](https://github.com/fatih/vim-go/pull/1387)
 * Fix opening definitions in tabs [[GH-1400]](https://github.com/fatih/vim-go/pull/1400)
 * Fix accidentally closing quickfix window from other commands if :GoFmt or autosave format was called [[GH-1407]](https://github.com/fatih/vim-go/pull/1407)
 * Fix entering into insert mode after for term mode in nvim [[GH-1411]](https://github.com/fatih/vim-go/pull/1411)
 * When using :GoImpl on type foo struct{} it would work, but with:
 
-```
-type foo struct{
-}
-```
+        type foo struct{
+        }
 
   or with a struct with fields, it would create the generated methods inside the
   struct [[GH-1386]](https://github.com/fatih/vim-go/pull/1386)
@@ -47,6 +65,11 @@ type foo struct{
   `:GoDoc` were documented but never referenced [[GH-1420]](https://github.com/fatih/vim-go/pull/1420).
 * `go#package#FromPath()` didn't work correctly [[GH-1435]](https://github.com/fatih/vim-go/pull/1435).
 * Fix race condition for `guru` based commands [[GH-1439]](https://github.com/fatih/vim-go/pull/1439).
+* The `gohtmltmpl` filetype now sources the `html` ftplugin, so that `matchit`,
+  completion, and some other things work better.
+  [[GH-1442]](https://github.com/fatih/vim-go/pull/1442)
+* Fix `:GoBuild` shell escaping [[GH-1450]](https://github.com/fatih/vim-go/pull/1450).
+* Ensure fmt list gets closed when title cannot be checked [[GH-1474]](https://github.com/fatih/vim-go/pull/1474).
 
 BACKWARDS INCOMPATIBILITIES:
 
@@ -92,7 +115,7 @@ IMPROVEMENTS
 * `:GoCoverage` echos now the progress if `g:go_echo_command_info` is enabled [[GH-1333]](https://github.com/fatih/vim-go/pull/1333)
 * Add `g:go_doc_max_height` setting to control the maximum height of the window created by `:GoDoc` and `K` mapping [[GH-1335]](https://github.com/fatih/vim-go/pull/1335)
 * The `af` text object is able to include the assignment variable for anonymous functions. Can be disabled with `g:go_textobj_include_variable = 0` [[GH-1345]](https://github.com/fatih/vim-go/pull/1345)
-* Add `g:go_list_autoclose` setting to prevent closting the quickfix/location list after zero items [[GH-1361]](https://github.com/fatih/vim-go/pull/1361)
+* Add `g:go_list_autoclose` setting to prevent closing the quickfix/location list after zero items [[GH-1361]](https://github.com/fatih/vim-go/pull/1361)
 * Cursor is now adjusted and locked to the correct line when `goimports` is used for autosave [[GH-1367]](https://github.com/fatih/vim-go/pull/1367)
 * Complement the path of command for different situations of Cygwin environment [[GH-1394]](https://github.com/fatih/vim-go/pull/1394)
 * Show message when using :GoDef and opening a new buffer [[GH-1385]](https://github.com/fatih/vim-go/pull/1385)

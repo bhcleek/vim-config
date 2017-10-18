@@ -308,4 +308,15 @@ endif
 
 let g:airline_powerline_fonts = 1
 
+
+" set the current directory based on the first argument
+if argc() > 0 && argv(0) != "-"
+	let root = fnamemodify(argv(0), ":p")
+	if filereadable(root)
+		cd `=fnamemodify(argv(0), ":p:h")`
+	elseif isdirectory(root)
+		cd `=fnamemodify(argv(0), ":p")`
+	endif
+endif
+
 " vim:set ft=vim noet:

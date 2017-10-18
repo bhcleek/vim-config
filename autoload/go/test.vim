@@ -6,9 +6,8 @@ function! go#test#Test(bang, compile, ...) abort
 
   " don't run the test, only compile it. Useful to capture and fix errors.
   if a:compile
-    " we're going to tell to run a test function that doesn't exist. This
-    " triggers a build of the test file itself but no tests will run.
-    call extend(args, ["-run", "499EE4A2-5C85-4D35-98FC-7377CD87F263"])
+    let testfile = tempname() . ".vim-go.test"
+    call extend(args, ["-c", "-o", testfile])
   endif
 
   if a:0
@@ -33,9 +32,9 @@ function! go#test#Test(bang, compile, ...) abort
 
   if get(g:, 'go_echo_command_info', 1)
     if a:compile
-      echon "vim-go: " | echohl Identifier | echon "compiling tests ..." | echohl None
+      call go#util#EchoProgress("compiling tests ...")
     else
-      echon "vim-go: " | echohl Identifier | echon "testing ..." | echohl None
+      call go#util#EchoProgress("testing...")
     endif
   endif
 
@@ -87,15 +86,15 @@ function! go#test#Test(bang, compile, ...) abort
       " failed to parse errors, output the original content
       call go#util#EchoError(out)
     endif
-    echon "vim-go: " | echohl ErrorMsg | echon "[test] FAIL" | echohl None
+    call go#util#EchoError("[test] FAIL")
   else
     call go#list#Clean(l:listtype)
     call go#list#Window(l:listtype)
 
     if a:compile
-      echon "vim-go: " | echohl Function | echon "[test] SUCCESS" | echohl None
+      call go#util#EchoSuccess("[test] SUCCESS")
     else
-      echon "vim-go: " | echohl Function | echon "[test] PASS" | echohl None
+      call go#util#EchoSuccess("[test] PASS")
     endif
   endif
   execute cd . fnameescape(dir)
@@ -172,12 +171,12 @@ function s:test_job(args) abort
     if get(g:, 'go_echo_command_info', 1)
       if a:exitval == 0
         if a:args.compile_test
-          call go#util#EchoSuccess("SUCCESS")
+          call go#util#EchoSuccess("[test] SUCCESS")
         else
-          call go#util#EchoSuccess("PASS")
+          call go#util#EchoSuccess("[test] PASS")
         endif
       else
-        call go#util#EchoError("FAILED")
+        call go#util#EchoError("[test] FAIL")
       endif
     endif
 

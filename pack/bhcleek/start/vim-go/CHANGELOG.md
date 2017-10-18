@@ -1,5 +1,19 @@
 ## unplanned
 
+BUG FIXES:
+
+* Fix compatibility with Vim version before 7.4.1546
+  [[GH-1498]](https://github.com/fatih/vim-go/pull/1498).
+* Don't resize godoc window if it's already visible
+  [[GH-1488]](https://github.com/fatih/vim-go/pull/1488).
+
+IMPROVEMENTS:
+
+* `:GoRename` is a bit smarter when automatically pre-filling values, and what
+  gets pre-filled can be configured with `g:go_gorename_prefill` option.
+  In addition `:GoRename <Tab>` now lists some common options.
+  [[GH-1465]](https://github.com/fatih/vim-go/pull/1465).
+
 ## 1.15 - (October 3, 2017)
 
 FEATURES:

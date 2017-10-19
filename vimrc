@@ -312,10 +312,16 @@ let g:airline_powerline_fonts = 1
 " set the current directory based on the first argument
 if argc() > 0 && argv(0) != "-"
 	let root = fnamemodify(argv(0), ":p")
-	if filereadable(root)
+	if filereadable(root) " root is a file
 		cd `=fnamemodify(argv(0), ":p:h")`
-	elseif isdirectory(root)
-		cd `=fnamemodify(argv(0), ":p")`
+	else
+		if isdirectory(root) " root is a directory
+			cd `=fnamemodify(argv(0), ":p")`
+		else
+			if isdirectory(fnamemodify(root, ":p:h")) " root is a new file in an existing directory
+				cd `=fnamemodify(argv(0), ":p:h")`
+			endif
+		endif
 	endif
 endif
 

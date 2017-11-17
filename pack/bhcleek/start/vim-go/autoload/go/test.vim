@@ -10,6 +10,11 @@ function! go#test#Test(bang, compile, ...) abort
     call extend(args, ["-c", "-o", testfile])
   endif
 
+  if exists('g:go_build_tags')
+    let tags = get(g:, 'go_build_tags')
+    call extend(args, ["-tags", tags])
+  endif
+
   if a:0
     let goargs = a:000
 
@@ -221,7 +226,7 @@ endfunction
 
 " show_errors parses the given list of lines of a 'go test' output and returns
 " a quickfix compatible list of errors. It's intended to be used only for go
-" test output. 
+" test output.
 function! s:show_errors(args, exit_val, messages) abort
   let l:listtype = go#list#Type("GoTest")
 

@@ -58,7 +58,7 @@ function! go#fmt#Format(withGoimport) abort
   endif
 
   " Write current unsaved buffer to a temp file
-  let l:tmpname = tempname()
+  let l:tmpname = tempname() . '.go'
   call writefile(go#util#GetLines(), l:tmpname)
   if go#util#IsWin()
     let l:tmpname = tr(l:tmpname, '\', '/')
@@ -153,8 +153,7 @@ function! go#fmt#update_file(source, target)
 endfunction
 
 " run runs the gofmt/goimport command for the given source file and returns
-" the the output of the executed command. Target is the real file to be
-" formated.
+" the output of the executed command. Target is the real file to be formatted.
 function! go#fmt#run(bin_name, source, target)
   let cmd = s:fmt_cmd(a:bin_name, a:source, a:target)
   if empty(cmd)

@@ -29,6 +29,7 @@ if !(has("win64") || has("win32") || has("win16"))
 	if !isdirectory($XDG_CACHE_HOME . '/vim/swap')
 		call mkdir($XDG_CACHE_HOME . '/vim/swap', 'p', 0700)
 	endif
+
 	" use // to replace path separators in the full file path with %.
 	set directory-=~/tmp
 	set directory-=/var/tmp
@@ -61,6 +62,12 @@ if !(has("win64") || has("win32") || has("win16"))
 		call mkdir($XDG_CACHE_HOME . '/vim/undo', 'p', 0700)
 	endif
 	set undodir^=$XDG_CACHE_HOME/vim/undo
+
+	" is the list of directory names for swap files
+	if !isdirectory($XDG_CACHE_HOME . '/vim/view')
+		call mkdir($XDG_CACHE_HOME . '/vim/view', 'p', 0700)
+	endif
+	set viewdir=$XDG_CACHE_HOME/vim/view
 
 	set viminfo+=n$XDG_CACHE_HOME/vim/viminfo
 

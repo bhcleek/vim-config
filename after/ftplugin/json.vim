@@ -1,1 +1,1 @@
-setlocal equalprg=jq\ --slurp\ '.'
+setlocal equalprg=jq\ '.'

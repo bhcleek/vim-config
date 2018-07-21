@@ -69,7 +69,11 @@ if !(has("win64") || has("win32") || has("win16"))
 	endif
 	set viewdir=$XDG_CACHE_HOME/vim/view
 
-	set viminfo+=n$XDG_CACHE_HOME/vim/viminfo
+	if !has('nvim')
+		set viminfo+=n$XDG_CACHE_HOME/vim/viminfo
+	else
+		set viminfo+=n$XDG_CACHE_HOME/vim/nviminfo
+	endif
 
 	set runtimepath-=~/.vim
 	set runtimepath^=$XDG_CONFIG_HOME/vim

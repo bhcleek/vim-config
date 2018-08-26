@@ -4,6 +4,7 @@ command! -nargs=? -complete=customlist,go#rename#Complete GoRename call go#renam
 " -- guru
 command! -nargs=* -complete=customlist,go#package#Complete GoGuruScope call go#guru#Scope(<f-args>)
 command! -range=% GoImplements call go#guru#Implements(<count>)
+command! -range=% GoPointsTo call go#guru#PointsTo(<count>)
 command! -range=% GoWhicherrs call go#guru#Whicherrs(<count>)
 command! -range=% GoCallees call go#guru#Callees(<count>)
 command! -range=% GoDescribe call go#guru#Describe(<count>)
@@ -25,7 +26,7 @@ command! -nargs=* -range GoRemoveTags call go#tags#Remove(<line1>, <line2>, <cou
 " -- tool
 command! -nargs=* -complete=customlist,go#tool#ValidFiles GoFiles echo go#tool#Files(<f-args>)
 command! -nargs=0 GoDeps echo go#tool#Deps()
-command! -nargs=* GoInfo call go#tool#Info(0)
+command! -nargs=0 GoInfo call go#tool#Info()
 command! -nargs=0 GoAutoTypeInfoToggle call go#complete#ToggleAutoTypeInfo()
 
 " -- cmd
@@ -97,5 +98,18 @@ command! -nargs=0 GoKeyify call go#keyify#Keyify()
 
 " -- fillstruct
 command! -nargs=0 GoFillStruct call go#fillstruct#FillStruct()
+
+" -- debug
+if !exists(':GoDebugStart')
+  command! -nargs=* -complete=customlist,go#package#Complete GoDebugStart call go#debug#Start(0, <f-args>)
+  command! -nargs=* -complete=customlist,go#package#Complete GoDebugTest  call go#debug#Start(1, <f-args>)
+  command! -nargs=? GoDebugBreakpoint call go#debug#Breakpoint(<f-args>)
+endif
+
+" -- issue
+command! -nargs=0 GoReportGitHubIssue call go#issue#New()
+
+" -- iferr
+command! -nargs=0 GoIfErr call go#iferr#Generate()
 
 " vim: sw=2 ts=2 et

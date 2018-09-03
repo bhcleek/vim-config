@@ -83,7 +83,7 @@ if !(has("win64") || has("win32") || has("win16"))
 	let &packpath = &runtimepath
 endif
 
-function NormalStatusline()
+function! NormalStatusline()
 	" emulate 'ruler'
 	let l:statusline=''
 	if exists('*fugitive#statusline')

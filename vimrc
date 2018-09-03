@@ -225,9 +225,20 @@ endif
 set background=dark
 colorscheme solarized
 
-" Allow color schemes to do bright colors without forcing bold.
 if &t_Co == 8 && $TERM !~# '^linux\|^Eterm'
+	" Allow color schemes to do bright colors without forcing bold.
 	set t_Co=16
+elseif &t_Co == 256 && ($TERM ==# "screen-256color" || $TERM ==# "xterm-256color")
+	if exists('+termguicolors')
+		" set foreground and background colors to their respective defaults (by
+		" default this is done automatically only when $TERM is xterm; See :help
+		" xterm-true-color).
+		let &t_8f = "\<Esc>[38;2;%lu;%lu;%lum"
+		let &t_8b = "\<Esc>[48;2;%lu;%lu;%lum"
+		set termguicolors
+	else
+		let g:solarized_termcolors=256
+	endif
 endif
 
 " Switch syntax highlighting on, when the terminal has colors

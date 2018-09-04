@@ -14,6 +14,11 @@ if has("autocmd")
 	" remove all auto commands in the default group
 	augroup END
 	au!
+
+	augroup vimrcedit
+		autocmd!
+		autocmd BufWritePost $MYVIMRC nested source $MYVIMRC
+	augroup END
 endif
 
 if !(has("win64") || has("win32") || has("win16"))
@@ -47,14 +52,13 @@ if !(has("win64") || has("win32") || has("win16"))
 
 	if has("autocmd")
 		augroup vimrcXDG
-		au!
+			autocmd!
 
-		" Double slash does not work for backupdir (see:
-		" https://github.com/vim/vim/issues/179).  Here's a workaround (%:p:h
-		" expands the current file's name to its full path and then removes the last
-		" component, the actual file name).
-		au BufWritePre * let &backupext='@'.substitute(substitute(substitute(expand('%:p:h'), '/', '%', 'g'), '\', '%', 'g'), ':', '', 'g')
-
+			" Double slash does not work for backupdir (see:
+			" https://github.com/vim/vim/issues/179).  Here's a workaround (%:p:h
+			" expands the current file's name to its full path and then removes the last
+			" component, the actual file name).
+			autocmd BufWritePre * let &backupext='@'.substitute(substitute(substitute(expand('%:p:h'), '/', '%', 'g'), '\', '%', 'g'), ':', '', 'g')
 		augroup END
 	endif
 
@@ -103,6 +107,12 @@ set statusline=%!NormalStatusline()
 "runtime bundle/pathogen/autoload/pathogen.vim
 "call pathogen#infect()
 "Helptags " generate documentation from each directory in runtimepath. Tim Pope says this is crazy.
+
+augroup colors
+	autocmd!
+	autocmd ColorScheme solarized highlight CursorLine cterm=bold,underline,nocombine ctermbg=bg ctermfg=NONE guibg=bg guifg=NONE gui=bold,underline,nocombine
+	autocmd ColorScheme solarized highlight CursorColumn cterm=bold,nocombine ctermbg=bg guibg=bg
+augroup END
 
 " Most of what vim-sensible does has been incorporated already, but
 " vim-sensible sets several other options that should be considered:
@@ -172,9 +182,15 @@ set showcmd					" display incomplete commands
 set incsearch				" do incremental searching
 set wildmenu 				" enhance command line completion
 
+set cursorline		" highlight the screen line of the cursor.
+set cursorcolumn	" highlight the screen column of the cursor.
+" only highlight the screen line and cursor of the active window.
+augroup cursor
+	autocmd!
+	autocmd WinLeave * set nocursorline nocursorcolumn
+	autocmd WinEnter * set cursorline cursorcolumn
+augroup END
 
-set cursorline
-set cursorcolumn
 if !&scrolloff
 	set scrolloff=1
 endif
@@ -347,4 +363,4 @@ if argc() > 0 && argv(0) != "-"
 	endif
 endif
 
-" vim:set ft=vim noet:
+" vim:set ft=vim noet tabstop=2 shiftwidth=2 shiftround:

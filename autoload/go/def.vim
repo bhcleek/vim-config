@@ -42,19 +42,18 @@ function! go#def#Jump(mode) abort
 
     call extend(cmd, ["definition", fname . ':#' . go#util#OffsetCursor()])
 
-    if go#util#has_job() || has('nvim')
+    if go#util#has_job()
       let l:state = {}
       let l:spawn_args = {
             \ 'cmd': cmd,
             \ 'complete': function('s:jump_to_declaration_cb', [a:mode, bin_name], l:state),
             \ 'for': '_',
+            \ 'statustype': 'searching declaration',
             \ }
 
       if &modified
         let l:spawn_args.input = stdin_content
       endif
-
-      call go#util#EchoProgress("searching declaration ...")
 
       call s:def_job(spawn_args, l:state)
       return

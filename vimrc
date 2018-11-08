@@ -96,7 +96,7 @@ function! NormalStatusline()
 
 	let l:statusline .= '%<%f %h%w%m%r'
 	if &filetype == 'go' && exists('*go#statusline#Show')
-		let l:statusline .= '%#goStatuslineColor#%{go#statusline#Show()}%*'
+		let l:statusline .= '%#goStatusLineColor#%{go#statusline#Show()}%*'
 	endif
 	let l:statusline .= '%=%-14.(%l,%c%V%) %P'
 
@@ -246,6 +246,7 @@ if has('mouse')
 	set mouse=a
 endif
 
+let g:solarized_diffmode='low'
 set background=dark
 colorscheme solarized
 
@@ -353,7 +354,6 @@ if has("win64") || has("win32") || has("win16")
 endif
 
 let g:airline_powerline_fonts = 1
-
 
 " set the current directory based on the first argument
 if argc() > 0 && argv(0) != "-"

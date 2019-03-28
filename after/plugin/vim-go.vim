@@ -19,7 +19,7 @@ let g:go_highlight_variable_declarations = 1
 
 let g:go_fmt_options = {'goimports': '-local do'}
 
-if has('balloon_eval')
+if has('balloon_eval_term')
   set balloonevalterm
   set balloonexpr=go#tool#DescribeBalloon()
 endif

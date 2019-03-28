@@ -244,6 +244,11 @@ inoremap <C-U> <C-G>u<C-U>
 " In many terminal emulators the mouse works just fine, thus enable it.
 if has('mouse')
 	set mouse=a
+	" set the mouse to sgr; it's backward compatible with xterm2 and will ensure
+	" that hover balloons work correctly in tmux.
+	if has('mouse_sgr')
+		set ttymouse=sgr
+	endif
 endif
 
 let g:solarized_diffmode='low'

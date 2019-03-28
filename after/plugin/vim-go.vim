@@ -1,6 +1,7 @@
 let g:go_fmt_command = "goimports"
 let g:go_def_mode = 'gopls'
 let g:go_info_mode = 'guru'
+let g:go_metalinter_command = 'golangci-lint'
 
 "let g:go_auto_sameids = 1
 "let g:go_auto_type_info = 1

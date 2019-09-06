@@ -182,6 +182,7 @@ if &history < 1000
 	set history=1000
 endif
 
+set noshowmode      " don't show the mode, because it can hide useful messages from plugins
 set number					" show line numbers
 set relativenumber	" show relative line number
 set laststatus=2		" always show status line

@@ -376,4 +376,13 @@ if argc() > 0 && argv(0) != "-"
 	endif
 endif
 
+
+nmap <leader>sp :call <SID>SynStack()<CR>
+function! <SID>SynStack()
+  if !exists("*synstack")
+    return
+  endif
+  echo map(synstack(line('.'), col('.')), 'synIDattr(v:val, "name")')
+endfunc
+
 " vim:set ft=vim noet tabstop=2 shiftwidth=2 shiftround:

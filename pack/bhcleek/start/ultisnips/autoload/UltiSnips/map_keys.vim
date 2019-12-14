@@ -10,7 +10,7 @@ if !exists("g:UltiSnipsExpandTrigger")
 endif
 
 " The trigger used to display all triggers that could possible
-" match in the current position.
+" match in the current position. Use empty to disable.
 if !exists("g:UltiSnipsListSnippets")
     let g:UltiSnipsListSnippets = "<c-tab>"
 endif
@@ -38,7 +38,7 @@ endif
 
 " UltiSnipsEdit will use this variable to decide if a new window
 " is opened when editing. default is "normal", allowed are also
-" "vertical", "horizontal", and "context".
+" "tabdo", "vertical", "horizontal", and "context".
 if !exists("g:UltiSnipsEditSplit")
     let g:UltiSnipsEditSplit = 'normal'
 endif
@@ -53,7 +53,7 @@ if !exists("g:UltiSnipsEnableSnipMate")
     let g:UltiSnipsEnableSnipMate = 1
 endif
 
-function! UltiSnips#map_keys#MapKeys()
+function! UltiSnips#map_keys#MapKeys() abort
     if g:UltiSnipsExpandTrigger == g:UltiSnipsJumpForwardTrigger
         exec "inoremap <silent> " . g:UltiSnipsExpandTrigger . " <C-R>=UltiSnips#ExpandSnippetOrJump()<cr>"
         exec "snoremap <silent> " . g:UltiSnipsExpandTrigger . " <Esc>:call UltiSnips#ExpandSnippetOrJump()<cr>"
@@ -62,11 +62,13 @@ function! UltiSnips#map_keys#MapKeys()
         exec "snoremap <silent> " . g:UltiSnipsExpandTrigger . " <Esc>:call UltiSnips#ExpandSnippet()<cr>"
     endif
     exec "xnoremap <silent> " . g:UltiSnipsExpandTrigger. " :call UltiSnips#SaveLastVisualSelection()<cr>gvs"
-    exec "inoremap <silent> " . g:UltiSnipsListSnippets . " <C-R>=UltiSnips#ListSnippets()<cr>"
-    exec "snoremap <silent> " . g:UltiSnipsListSnippets . " <Esc>:call UltiSnips#ListSnippets()<cr>"
+    if len(g:UltiSnipsListSnippets) > 0
+       exec "inoremap <silent> " . g:UltiSnipsListSnippets . " <C-R>=UltiSnips#ListSnippets()<cr>"
+       exec "snoremap <silent> " . g:UltiSnipsListSnippets . " <Esc>:call UltiSnips#ListSnippets()<cr>"
+    endif
 
-    snoremap <silent> <BS> <c-g>c
-    snoremap <silent> <DEL> <c-g>c
-    snoremap <silent> <c-h> <c-g>c
+    snoremap <silent> <BS> <c-g>"_c
+    snoremap <silent> <DEL> <c-g>"_c
+    snoremap <silent> <c-h> <c-g>"_c
     snoremap <c-r> <c-g>"_c<c-r>
 endf

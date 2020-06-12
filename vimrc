@@ -111,7 +111,8 @@ set statusline=%!NormalStatusline()
 augroup colors
 	autocmd!
 	if !has('nvim')
-		autocmd ColorScheme solarized highlight CursorLine		cterm=bold,underline,nocombine ctermbg=bg ctermfg=NONE guibg=bg guifg=NONE gui=bold,underline,nocombine
+		"autocmd ColorScheme solarized highlight Search term=reverse cterm=reverse ctermfg=3 guifg=Black guibg=Yellow
+		autocmd ColorScheme solarized highlight CursorLine		cterm=bold,underline,nocombine ctermbg=bg guibg=bg gui=bold,underline,nocombine
 		autocmd ColorScheme solarized highlight CursorColumn 	cterm=bold,nocombine ctermbg=bg guibg=bg
 	endif
 

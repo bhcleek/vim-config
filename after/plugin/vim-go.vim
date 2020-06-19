@@ -6,6 +6,7 @@ let g:go_metalinter_command = 'gopls'
 let g:go_metalinter_autosave_enabled=['golint', 'govet', 'typecheck']
 let g:go_echo_command_info = 0
 let g:go_imports_autosave = 1
+let g:go_test_show_name = 1
 
 let g:go_auto_sameids = 0 " disabled until https://github.com/vim/vim/issues/5533 is resolved.
 let g:go_auto_type_info = 1

@@ -24,10 +24,10 @@ let g:go_fmt_options = {'goimports': '-local do'}
 
 let g:go_gopls_use_placeholders = 1
 let g:go_gopls_staticcheck = 1
-let g:go_diagnostics_enabled = 1
+let g:go_diagnostics_level = 2
 let g:go_gopls_matcher = 'fuzzy'
 let g:go_gopls_local = "do"
 
 let g:go_gopls_options = ['-remote=auto']
 
-" vim:ts=2:sw=2:et
+" vim: ts=2 sw=2 et

@@ -28,6 +28,8 @@ let g:go_diagnostics_level = 2
 let g:go_gopls_matcher = 'fuzzy'
 let g:go_gopls_local = "do"
 
+let g:go_doc_balloon = 1
+
 let g:go_gopls_options = ['-remote=auto']
 
 " vim: ts=2 sw=2 et

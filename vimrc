@@ -81,6 +81,9 @@ if !(has("win64") || has("win32") || has("win16"))
 
 	set runtimepath-=~/.vim
 	set runtimepath^=$XDG_CONFIG_HOME/vim
+	if isdirectory(printf('%s/src/vim-go', $HOME))
+		set runtimepath^=$HOME/src/vim-go
+	endif
 	set runtimepath-=~/.vim/after
 	set runtimepath+=$XDG_CONFIG_HOME/vim/after
 

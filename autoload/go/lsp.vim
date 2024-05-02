@@ -223,12 +223,27 @@ function! s:newlsp() abort
       " TODO(bc): handle more notifications (e.g. window/showMessage).
       if a:req.method == 'textDocument/publishDiagnostics'
         call self.handleDiagnostics(a:req.params)
+      elseif a:req.method == 'window/showMessage'
+        call self.showMessage(a:req.params)
       endif
   endfunction
 
   function! l:lsp.handleDiagnostics(data) dict abort
     let self.diagnosticsQueue = add(self.diagnosticsQueue, a:data)
     call self.updateDiagnostics()
+  endfunction
+
+  function! l:lsp.showMessage(data) dict abort
+    let l:msg = a:data.message
+    if a:data.type == 1
+      call go#util#EchoError(l:msg)
+    elseif a:data.type == 2
+      call go#util#EchoWarning(l:msg)
+    elseif a:data.type == 3
+      call go#util#EchoInfo(l:msg)
+    elseif a:data.type == 4
+      " do nothing for Log messages
+    endif
   endfunction
 
   " TODO(bc): process the queue asynchronously
@@ -262,8 +277,8 @@ function! s:newlsp() abort
             if l:level < l:diag.severity
               continue
             endif
-            let [l:error, l:matchpos] = s:errorFromDiagnostic(l:diag, l:bufname, l:fname)
-            let l:diagnostics = add(l:diagnostics, l:error)
+            let [l:diagnostic, l:matchpos] = s:processDiagnostic(l:diag, l:bufname, l:fname)
+            let l:diagnostics = add(l:diagnostics, l:diagnostic)
 
             if empty(l:matchpos)
               continue
@@ -295,7 +310,7 @@ function! s:newlsp() abort
           call remove(self.notificationQueue[l:fname], 0)
         endif
       catch
-        call go#util#EchoError(printf('%s: %s', v:throwpoint, v:exception))
+        "call go#util#EchoError(printf('%s: %s', v:throwpoint, v:exception))
       endtry
     endfor
   endfunction
@@ -477,6 +492,7 @@ function! s:newlsp() abort
 
   let l:bin_path = go#path#CheckBinPath("gopls")
   if empty(l:bin_path)
+    let l:lsp.sendMessage = funcref('s:noop')
     return l:lsp
   endif
 
@@ -533,6 +549,8 @@ function! s:requestComplete(ok) abort dict
   endif
 
   if go#config#EchoCommandInfo()
+    " redraw to avoid messages piling up
+    redraw
     let prefix = '[' . self.statustype . '] '
     if a:ok
       call go#util#EchoSuccess(prefix . "SUCCESS")
@@ -597,7 +615,14 @@ function! s:definitionHandler(next, msg) abort dict
 
   " gopls returns a []Location; just take the first one.
   let l:msg = a:msg[0]
-  let l:args = [[printf('%s:%d:%d: %s', go#path#FromURI(l:msg.uri), l:msg.range.start.line+1, go#lsp#lsp#PositionOf(getline(l:msg.range.start.line+1), l:msg.range.start.character), 'lsp does not supply a description')]]
+
+  let l:line = s:lineinfile(go#path#FromURI(l:msg.uri), l:msg.range.start.line+1)
+  if l:line is -1
+    call go#util#EchoWarning('could not find definition')
+    return
+  endif
+
+  let l:args = [[printf('%s:%d:%d: %s', go#path#FromURI(l:msg.uri), l:msg.range.start.line+1, go#lsp#lsp#PositionOf(l:line, l:msg.range.start.character), 'lsp does not supply a description')]]
   call call(a:next, l:args)
 endfunction
 
@@ -623,7 +648,14 @@ function! s:typeDefinitionHandler(next, msg) abort dict
 
   " gopls returns a []Location; just take the first one.
   let l:msg = a:msg[0]
-  let l:args = [[printf('%s:%d:%d: %s', go#path#FromURI(l:msg.uri), l:msg.range.start.line+1, go#lsp#lsp#PositionOf(getline(l:msg.range.start.line+1), l:msg.range.start.character), 'lsp does not supply a description')]]
+
+  let l:line = s:lineinfile(go#path#FromURI(l:msg.uri), l:msg.range.start.line+1)
+  if l:line is -1
+    call go#util#EchoWarning('could not find definition')
+    return
+  endif
+
+  let l:args = [[printf('%s:%d:%d: %s', go#path#FromURI(l:msg.uri), l:msg.range.start.line+1, go#lsp#lsp#PositionOf(l:line, l:msg.range.start.character), 'lsp does not supply a description')]]
   call call(a:next, l:args)
 endfunction
 
@@ -813,13 +845,11 @@ function! s:completionErrorHandler(next, error) abort dict
 endfunction
 
 " go#lsp#SameIDs calls gopls to get the references to the identifier at line
-" and col in fname. handler should be a dictionary function that takes a list
-" of strings in the form 'file:line:col: message'. handler will be attached to
-" a dictionary that manages state (statuslines, sets the winid, etc.). handler
-" should take three arguments: an exit_code, a JSON object encoded to a string
-" that mimics guru's ouput for `what`, and third mode parameter that only
-" exists for compatibility with the guru implementation of SameIDs.
-" TODO(bc): refactor to not need the guru adapter.
+" and col in fname. handler should be a dictionary function. handler will be
+" attached to a dictionary that manages state (statuslines, sets the winid,
+" etc.). handler should take two arguments: an exit_code and an object with
+" one property, sameids, whose value is an array of positions, [start line,
+" start col, end col].
 function! go#lsp#SameIDs(showstatus, fname, line, col, handler) abort
   call go#lsp#DidChange(a:fname)
 
@@ -842,7 +872,6 @@ function! s:sameIDsHandler(next, msg) abort dict
 
   let l:result = {
         \ 'sameids': [],
-        \ 'enclosing': [],
       \ }
 
   let l:msg = a:msg
@@ -855,28 +884,20 @@ function! s:sameIDsHandler(next, msg) abort dict
       continue
     endif
 
-    if len(l:result.enclosing) == 0
-      let l:result.enclosing = [{
-            \ 'desc': 'identifier',
-            \ 'start': l:loc.range.start.character+1,
-            \ 'end': l:loc.range.end.character+1,
-          \ }]
-    endif
-
-    let l:result.sameids = add(l:result.sameids, printf('%s:%s:%s', go#path#FromURI(l:loc.uri), l:loc.range.start.line+1, l:loc.range.start.character+1))
+    let l:line = getline(l:loc.range.start.line + 1)
+    let l:start = go#lsp#lsp#PositionOf(l:line, l:loc.range.start.character)
+    let l:end = go#lsp#lsp#PositionOf(l:line, l:loc.range.end.character)
+    let l:result.sameids = add(l:result.sameids, [l:loc.range.start.line+1, l:start, l:end])
   endfor
 
-  call call(a:next, [0, json_encode(l:result), ''])
+  call call(a:next, [0, l:result])
 endfunction
 
 " go#lsp#Referrers calls gopls to get the references to the identifier at line
-" and col in fname. handler should be a dictionary function that takes a list
-" of strings in the form 'file:line:col: message'. handler will be attached to
-" a dictionary that manages state (statuslines, sets the winid, etc.). handler
-" should take three arguments: an exit_code, a JSON object encoded to a string
-" that mimics guru's ouput for `what`, and third mode parameter that only
-" exists for compatibility with the guru implementation of SameIDs.
-" TODO(bc): refactor to not need the guru adapter.
+" and col in fname. handler should be a dictionary function. handler will be
+" attached to a dictionary that manages state (statuslines, sets the winid,
+" etc.). handler should take two arguments: an exit_code and a list of strings
+" in the form 'file:line:col: message'.
 function! go#lsp#Referrers(fname, line, col, handler) abort
   call go#lsp#DidChange(a:fname)
 
@@ -918,16 +939,14 @@ function! s:handleLocations(next, msg) abort
     let l:result = add(l:result, l:item)
   endfor
 
-  call call(a:next, [0, l:result, ''])
+  call call(a:next, [0, l:result])
 endfunction
 
 " go#lsp#Implementations calls gopls to get the implementations to the
-" identifier at line and col in fname. handler should be a dictionary function
-" that takes a list of strings in the form 'file:line:col: message'. handler
-" will be attached to a dictionary that manages state (statuslines, sets the
-" winid, etc.). handler should take three arguments: an exit_code, a JSON
-" object encoded to a string that mimics guru's ouput for guru implements, and
-" a third parameter that only exists for compatibility with guru implements.
+" identifier at line and col in fname. handler should be a dictionary
+" function. handler will be attached to a dictionary that manages state
+" (statuslines, sets the winid, etc.). handler should take two arguments: an
+" exit_code and a list of strings in the form 'file:line:col: message'.
 function! go#lsp#Implements(fname, line, col, handler) abort
   call go#lsp#DidChange(a:fname)
 
@@ -955,23 +974,66 @@ function! go#lsp#Hover(fname, line, col, handler) abort
   let l:lsp = s:lspfactory.get()
   let l:msg = go#lsp#message#Hover(a:fname, a:line, a:col)
   let l:state = s:newHandlerState('')
-  let l:state.handleResult = funcref('s:hoverHandler', [function(a:handler, [], l:state)], l:state)
-  let l:state.error = funcref('s:noop')
+  let l:diagnosticMsg = ''
+
+  if has_key(l:lsp.diagnostics, a:fname)
+    for l:diagnostic in l:lsp.diagnostics[a:fname]
+      if !s:within(l:diagnostic.range, a:line, a:col)
+        continue
+      endif
+
+      let l:diagnosticMsg = l:diagnostic.message
+      break
+    endfor
+  endif
+  let l:state.handleResult = funcref('s:hoverHandler', [function(a:handler, [], l:state), l:diagnosticMsg], l:state)
+  let l:state.error = funcref('s:hoverError', [function(a:handler, [], l:state), l:diagnosticMsg], l:state)
   return l:lsp.sendMessage(l:msg, l:state)
 endfunction
 
-function! s:hoverHandler(next, msg) abort dict
+function! s:hoverHandler(next, diagnostic, msg) abort dict
   if a:msg is v:null || !has_key(a:msg, 'contents')
+    if len(a:diagnostic) > 0
+      call call(a:next, [a:diagnostic])
+    endif
     return
   endif
 
   try
     let l:value = json_decode(a:msg.contents.value)
-    let l:args = [l:value.signature]
-    call call(a:next, l:args)
+
+    let l:msg = []
+    if len(a:diagnostic) > 0
+      let l:msg = split(a:diagnostic, "\n")
+      let l:msg = add(l:msg, '')
+    endif
+    let l:signature = split(l:value.signature, "\n")
+    let l:msg = extend(l:msg, l:signature)
+    if go#config#DocBalloon()
+      " use synopsis instead of fullDocumentation to keep the hover window
+      " small.
+      let l:doc = l:value.synopsis
+      if len(l:doc) isnot 0
+        let l:msg = extend(l:msg, ['', l:doc])
+      endif
+    endif
+
+    call call(a:next, [l:msg])
   catch
     " TODO(bc): log the message and/or show an error message.
   endtry
+endfunction
+
+function! s:hoverError(next, diagnostic, msg) abort dict
+  try
+    if len(a:diagnostic) > 0
+      let l:msg = split(a:diagnostic, "\n")
+      call call(a:next, [l:msg])
+    endif
+  catch
+  endtry
+
+  return
 endfunction
 
 function! go#lsp#Doc() abort
@@ -1259,49 +1321,82 @@ function! s:exit(restart) abort
 endfunction
 
 let s:log = []
+let s:logtimer = 0
 function! s:debugasync(timer) abort
+  let s:logtimer = 0
+
   if !go#util#HasDebug('lsp')
     let s:log = []
     return
   endif
 
-  let l:winid = win_getid()
-
-  let l:name = '__GOLSP_LOG__'
-  let l:log_winid = bufwinid(l:name)
-  if l:log_winid == -1
-    silent keepalt botright 10new
-    silent file `='__GOLSP_LOG__'`
-    setlocal buftype=nofile bufhidden=wipe nomodified nobuflisted noswapfile nowrap nonumber nocursorline
-    setlocal filetype=golsplog
+  " set the timer to try again if Vim is in a state where we don't want to
+  " change the window.
+  if exists('*state')
+    let l:state = state('a')
   else
-    call win_gotoid(l:log_winid)
+    let l:state = mode(1)
+    if !(l:state == 'ic' || l:state == 'Rc' || l:state == 'Rvc')
+      let l:state = ''
+    endif
+  endif
+  let l:mode = mode(1)
+  if len(l:state) > 0 || l:mode[0] == 'v' || l:mode[0] == 'V' || l:mode[0] == 's' || l:mode =~ 'CTRL-V'
+    let s:logtimer = timer_start(go#config#DebugLogDelay(), function('s:debugasync', []))
+    return
   endif
 
   try
-    setlocal modifiable
-    for [l:event, l:data] in s:log
-      call remove(s:log, 0)
-      if getline(1) == ''
-        call setline('$', printf('===== %s =====', l:event))
-      else
-        call append('$', printf('===== %s =====', l:event))
-      endif
-      call append('$', split(l:data, "\r\n"))
-    endfor
-    normal! G
-    setlocal nomodifiable
+    let l:winid = win_getid()
+
+    let l:name = '__GOLSP_LOG__'
+    let l:log_winid = bufwinid(l:name)
+    if l:log_winid == -1
+      silent keepalt botright 10new
+      silent file `='__GOLSP_LOG__'`
+      setlocal buftype=nofile bufhidden=wipe nomodified nobuflisted noswapfile nowrap nonumber nocursorline
+      setlocal filetype=golsplog
+      setlocal fileencoding=utf-8
+      call win_gotoid(l:winid)
+    endif
+
+    let l:logwinid = bufwinid(l:name)
+
+    try
+      call setbufvar(l:name, '&modifiable', 1)
+      for [l:event, l:data] in s:log
+        call remove(s:log, 0)
+        if getbufline(l:name, 1)[0] == ''
+          call setbufline(l:name, '$', printf('===== %s =====', l:event))
+        else
+          call appendbufline(l:name, '$', printf('===== %s =====', l:event))
+        endif
+        call appendbufline(l:name, '$', split(l:data, "\r\n"))
+      endfor
+
+      " Move the window's cursor position without switching to the window
+      call win_execute(l:logwinid, 'normal! G')
+      call setbufvar(l:name, '&modifiable', 0)
+    finally
+    endtry
+  catch
+    call go#util#EchoError(printf('at %s: %s', v:throwpoint, v:exception))
   finally
-    call win_gotoid(l:winid)
+    " retry when there's an exception. This can happen when trying to do
+    " completion, because the window can not be changed while completion is in
+    " progress.
+    if len(s:log) != 0
+      let s:logtimer = timer_start(go#config#DebugLogDelay(), function('s:debugasync', []))
+    endif
   endtry
 endfunction
 
 function! s:debug(event, data) abort
-  let l:shouldStart = len(s:log) == 0
+  let l:shouldStart = s:logtimer is 0
   let s:log = add(s:log, [a:event, a:data])
 
   if l:shouldStart
-    call timer_start(10, function('s:debugasync', []))
+    let s:logtimer = timer_start(go#config#DebugLogDelay(), function('s:debugasync', []))
   endif
 endfunction
 
@@ -1351,7 +1446,7 @@ function! go#lsp#Diagnostics(...) abort
 
     for l:arg in a:000
       if l:arg == l:pkg || l:arg == 'all'
-        let l:diagnostics = extend(l:diagnostics, l:val)
+        let l:diagnostics = extend(l:diagnostics, map(l:val, 'v:val["error"]'))
       endif
     endfor
   endfor
@@ -1371,7 +1466,7 @@ function! go#lsp#AnalyzeFile(fname) abort
 
   let l:version = get(l:lsp.fileVersions, a:fname, 0)
   if l:version == getbufvar(a:fname, 'changedtick')
-    return l:lastdiagnostics
+    return map(l:lastdiagnostics, 'v:val["error"]')
   endif
 
   call go#lsp#DidChange(a:fname)
@@ -1382,47 +1477,75 @@ function! go#lsp#AnalyzeFile(fname) abort
 endfunction
 
 function! s:setDiagnostics(...) abort
-  return a:000
+  return map(a:000, 'v:val["error"]')
 endfunction
 
-" s:processDiagnostic converts a diagnostic into an error string. It returns
-" the errors string and the match position described in the diagnostic. The
-" match position will be an empty list when bufname is not a valid name for
-" the current buffer.
-function! s:errorFromDiagnostic(diagnostic, bufname, fname) abort
+" s:processDiagnostic converts a diagnostic from LSP into useful values for
+" Vim. It returns the a value with the original message, the diagnostic range
+" as expressed by LSP, an error string, and the Vim match position described
+" in the diagnostic. The match position will be an empty list when bufname is
+" not a valid name for the current buffer.
+function! s:processDiagnostic(diagnostic, bufname, fname) abort
   let l:range = a:diagnostic.range
 
+  let l:diagnostic = {
+        \ "message": a:diagnostic.message,
+        \ "range": {
+          \ "start": {
+            \ "line": l:range.start.line,
+            \ "character": l:range.start.character,
+          \ },
+          \ "end": {
+            \ "line": l:range.end.line,
+            \ "character": l:range.end.character,
+          \ },
+        \ },
+      \ }
+
   let l:line = l:range.start.line + 1
+  let l:endline = l:range.end.line + 1
+
   let l:buflines = getbufline(a:bufname, l:line)
   let l:col = ''
   if len(l:buflines) > 0
     let l:col = go#lsp#lsp#PositionOf(l:buflines[0], l:range.start.character)
   endif
-  let l:error = printf('%s:%s:%s:%s: %s', a:fname, l:line, l:col, go#lsp#lsp#SeverityToErrorType(a:diagnostic.severity), a:diagnostic.message)
+
+  let l:severity = go#lsp#lsp#SeverityToErrorType(a:diagnostic.severity)
+  let l:diagnostic.error = printf('%s:%s:%s:%s: %s', a:fname, l:line, l:col, l:severity, l:diagnostic.message)
 
   if !(a:diagnostic.severity == 1 || a:diagnostic.severity == 2)
-    return [l:error, []]
+    return [l:diagnostic, []]
   endif
 
   " return when the diagnostic is not for the current buffer.
   if bufnr(a:bufname) != bufnr('')
-    return [l:error, []]
+    return [l:diagnostic, []]
   end
 
-  let l:endline = l:range.end.line + 1
   " don't bother trying to highlight errors or warnings that span
   " the whole file (e.g when there's missing package documentation).
   if l:line == 1 && (l:endline) == line('$')
-    return [l:error, []]
+    return [l:diagnostic, []]
   endif
-  let l:endcol = go#lsp#lsp#PositionOf(getline(l:endline), l:range.end.character)
+
+  if len(l:buflines) == 0
+    return [l:diagnostic, []]
+  endif
+
+  let l:buflines = getbufline(a:bufname, l:endline)
+  if len(l:buflines) > 0
+    let l:endcol = go#lsp#lsp#PositionOf(l:buflines[0], l:range.end.character)
+  else
+    return [l:diagnostic, []]
+  endif
 
   " the length of the match is the number of bytes between the start of
   " the match and the end of the match.
   let l:matchLength = line2byte(l:endline) + l:endcol - (line2byte(l:line) + l:col)
   let l:pos = [l:line, l:col, l:matchLength]
 
-  return [l:error, l:pos]
+  return [l:diagnostic, l:pos]
 endfunction
 
 function! s:highlightMatches(errorMatches, warningMatches) abort
@@ -1536,7 +1659,7 @@ function! go#lsp#FillStruct() abort
   let l:lsp = s:lspfactory.get()
 
   let l:state = s:newHandlerState('')
-  let l:handler = go#promise#New(function('s:handleCodeAction', ['refactor.rewrite', 'fill_struct'], l:state), 10000, '')
+  let l:handler = go#promise#New(function('s:handleCodeAction', ['refactor.rewrite', 'apply_fix'], l:state), 10000, '')
   let l:state.handleResult = l:handler.wrapper
   let l:state.error = l:handler.wrapper
   let l:state.handleError = function('s:handleCodeActionError', [l:fname], l:state)
@@ -1548,6 +1671,128 @@ function! go#lsp#FillStruct() abort
   " await the result to avoid any race conditions among autocmds (e.g.
   " BufWritePre and BufWritePost)
   call l:handler.await()
+endfunction
+
+" Extract executes the refactor.extract code action for the current buffer
+" and configures the handler to only apply the fillstruct command for the
+" current location.
+function! go#lsp#Extract(line1, line2) abort
+  let l:fname = expand('%:p')
+  " send the current file so that TextEdits will be relative to the current
+  " state of the buffer.
+  call go#lsp#DidChange(l:fname)
+
+  let l:lsp = s:lspfactory.get()
+
+  let l:state = s:newHandlerState('')
+  let l:handler = go#promise#New(function('s:handleCodeAction', ['refactor.extract', 'apply_fix'], l:state), 10000, '')
+  let l:state.handleResult = l:handler.wrapper
+  let l:state.error = l:handler.wrapper
+  let l:state.handleError = function('s:handleCodeActionError', [l:fname], l:state)
+
+  if a:line1 == -1
+    let [l:startline, l:startcol] = go#lsp#lsp#Position(line('.'), 1)
+  else
+    let [l:startline, l:startcol] = go#lsp#lsp#Position(a:line1, 1)
+  endif
+  if a:line2 == -1
+    let [l:endline, l:endcol] = go#lsp#lsp#Position(line('.'), col('$'))
+  else
+    let [l:endline, l:endcol] = go#lsp#lsp#Position(a:line2, col([a:line2, '$']))
+  endif
+
+  let l:msg = go#lsp#message#CodeActionRefactorExtract(l:fname, l:startline, l:startcol, l:endline, l:endcol)
+  call l:lsp.sendMessage(l:msg, l:state)
+
+  " await the result to avoid any race conditions among autocmds (e.g.
+  " BufWritePre and BufWritePost)
+  call l:handler.await()
+endfunction
+
+function! go#lsp#Rename(newName) abort
+  let l:fname = expand('%:p')
+  let [l:line, l:col] = go#lsp#lsp#Position()
+
+  call go#lsp#DidChange(l:fname)
+
+  let l:lsp = s:lspfactory.get()
+  let l:msg = go#lsp#message#PrepareRename(l:fname, l:line, l:col)
+  let l:state = s:newHandlerState('rename')
+  let l:resultHandler = go#promise#New(function('s:rename', [l:fname, l:line, l:col, a:newName], l:state), 10000, '')
+
+  let l:state.handleResult = l:resultHandler.wrapper
+  let l:state.error = l:resultHandler.wrapper
+  let l:state.handleError = function('s:handleRenameError', [], l:state)
+  call l:lsp.sendMessage(l:msg, l:state)
+
+  return l:resultHandler.await()
+endfunction
+
+function! go#lsp#ModReload(...) abort
+  let l:gomod = 'go.mod'
+  if a:0 is 0
+    let l:modroot = go#util#ModuleRoot()
+    if l:modroot is -1
+      call go#util#EchoError('go module not found')
+      return
+    endif
+    let l:gomod = printf('%s/%s', l:modroot, 'go.mod')
+  else
+    let l:gomod = a:1
+  endif
+
+  if l:gomod !~ 'go.mod$'
+    let l:gomod = printf('%s/%s', l:gomod, 'go.mod')
+  endif
+  let l:gomod = fnamemodify(l:gomod, ':p')
+
+  if !filereadable(l:gomod)
+    call go#util#EchoError('go.mod does not exist')
+    return
+  endif
+
+  let l:lsp = s:lspfactory.get()
+  let l:msg = go#lsp#message#DidChangeWatchedFile(l:gomod, 'Changed')
+  let l:state = s:newHandlerState('')
+  return l:lsp.sendMessage(l:msg, l:state)
+endfunction
+
+function! s:rename(fname, line, col, newName, msg) abort dict
+  if type(a:msg) is type('')
+    call self.handleError(a:msg)
+    return
+  endif
+
+  if a:msg is v:null
+    call go#util#EchoWarning('cannot rename the identifier at the requested position')
+    return
+  endif
+
+  call go#lsp#DidChange(a:fname)
+
+  let l:lsp = s:lspfactory.get()
+  let l:msg = go#lsp#message#Rename(a:fname, a:line, a:col, a:newName)
+  let l:state = s:newHandlerState('rename')
+  let l:resultHandler = go#promise#New(function('s:handleRename', [], l:state), 10000, '')
+
+  let l:state.handleResult = l:resultHandler.wrapper
+  let l:state.error = l:resultHandler.wrapper
+  let l:state.handleError = function('s:handleRenameError', [], l:state)
+  call l:lsp.sendMessage(l:msg, l:state)
+
+  return l:resultHandler.await()
+endfunction
+
+function! s:handleRename(msg) abort dict
+  if type(a:msg) is type('')
+    call self.handleError(a:msg)
+    return
+  endif
+
+  if a:msg is v:null
+    return
+  endif
+  call s:applyDocumentChanges(a:msg.documentChanges)
 endfunction
 
 function! s:executeCommand(cmd, args) abort
@@ -1566,7 +1811,7 @@ function! s:handleFormat(msg) abort dict
     call self.handleError(a:msg)
     return
   endif
-  call s:applyTextEdits(a:msg)
+  call s:applyTextEdits(bufnr(''), a:msg)
 endfunction
 
 function! s:handleCodeAction(kind, cmd, msg) abort dict
@@ -1581,7 +1826,8 @@ function! s:handleCodeAction(kind, cmd, msg) abort dict
 
   for l:item in a:msg
     if get(l:item, 'kind', '') is a:kind
-      if !has_key(l:item, 'edit')
+      if has_key(l:item, 'disabled') && get(l:item.disabled, 'reason', '') isnot ''
+        call go#util#EchoWarning(printf('code action is disabled: %s', l:item.disabled.reason))
         continue
       endif
 
@@ -1590,6 +1836,10 @@ function! s:handleCodeAction(kind, cmd, msg) abort dict
           call s:executeCommand(l:item.command.command, l:item.command.arguments)
           continue
         endif
+      endif
+
+      if !has_key(l:item, 'edit')
+        continue
       endif
 
       if !has_key(l:item.edit, 'documentChanges')
@@ -1601,20 +1851,65 @@ function! s:handleCodeAction(kind, cmd, msg) abort dict
 endfunction
 
 function s:applyDocumentChanges(changes)
+  let l:bufnr = bufnr('')
+
   for l:change in a:changes
     if !has_key(l:change, 'edits')
       continue
     endif
-    " TODO(bc): change to the buffer for l:change.textDocument.uri
-    call s:applyTextEdits(l:change.edits)
+    let l:fname = go#path#FromURI(l:change.textDocument.uri)
+
+    " get the buffer name relative to the current directory, because
+    " Vim says that a buffer name can't be an absolute path.
+    let l:bufname = fnamemodify(l:fname, ':.')
+
+    let l:bufadded = 0
+    let l:bufloaded = 0
+
+    let l:editbufnr = bufnr(l:bufname)
+    if l:editbufnr != bufnr('')
+      " make sure the buffer is listed and loaded before applying text edits
+      if !bufexists(l:bufname)
+        call bufadd(l:bufname)
+        let l:bufadded = 1
+      endif
+
+      if !bufloaded(l:bufname)
+        call bufload(l:bufname)
+        let l:bufloaded = 1
+      endif
+
+      let l:editbufnr = bufnr(l:bufname)
+      if l:editbufnr == -1
+        call go#util#EchoWarning(printf('could not apply changes to %s', l:fname))
+        continue
+      endif
+
+       " TODO(bc): do not edit the buffer when vim-go drops support for Vim
+       " 8.0. Instead, use the functions to modify a buffer (e.g.
+       " appendbufline, getbufline, deletebufline).
+       execute printf('keepalt keepjumps buffer! %d', l:editbufnr)
+    endif
+    call s:applyTextEdits(l:editbufnr, l:change.edits)
+
+    " TODO(bc): save the buffer?
+    " TODO(bc): unload and/or delete a buffer that was loaded or added,
+    " respectively?
   endfor
+  if bufnr('') != l:bufnr
+    execute printf('keepalt keepjumps buffer! %d', l:bufnr)
+  endif
 endfunction
 
 " s:applyTextEdit applies the list of WorkspaceEdit values in msg.
-function s:applyTextEdits(msg) abort
+function s:applyTextEdits(bufnr, msg) abort
   if a:msg is v:null
     return
   endif
+
+  " TODO(bc): start using the functions to modify a buffer (e.g. appendbufline,
+  " deletebufline, etc) instead of operating on the current buffer when vim-go
+  " drops support from Vim 8.0.
 
   " process the TextEdit list in reverse order, because the positions are
   " based on the current line numbers; processing in forward order would
@@ -1632,22 +1927,21 @@ function s:applyTextEdits(msg) abort
       continue
     endif
 
-    let l:startcontent = getline(l:startline)
-    let l:preSliceEnd = 0
+    " Assume that l:startcontent will be an empty string. When the replacement
+    " is not at the beginning of the line, then l:startcontent must be what
+    " comes before the start position on the start line.
+    let l:startcontent = ''
     if l:msg.range.start.character > 0
-      let l:preSliceEnd = go#lsp#lsp#PositionOf(l:startcontent, l:msg.range.start.character-1) - 1
-      let l:startcontent = l:startcontent[:l:preSliceEnd]
-    elseif l:endline == l:startline && (l:msg.range.end.character == 0 || l:msg.range.start.character == 0)
-      " l:startcontent should be the empty string when l:text is a
-      " replacement at the beginning of the line.
-      let l:startcontent = ''
+      let l:startcontent = getline(l:startline)
+      let l:preSliceEnd = go#lsp#lsp#PositionOf(l:startcontent, l:msg.range.start.character-1)
+      let l:startcontent = strcharpart(l:startcontent, 0, l:preSliceEnd) "l:startcontent[:l:preSliceEnd]
     endif
 
     let l:endcontent = getline(l:endline)
     let l:postSliceStart = 0
     if l:msg.range.end.character > 0
       let l:postSliceStart = go#lsp#lsp#PositionOf(l:endcontent, l:msg.range.end.character-1)
-      let l:endcontent = l:endcontent[(l:postSliceStart):]
+      let l:endcontent = strcharpart(l:endcontent, l:postSliceStart) "l:endcontent[(l:postSliceStart):]
     endif
 
     " There isn't an easy way to replace the text in a byte or character
@@ -1660,6 +1954,7 @@ function s:applyTextEdits(msg) abort
     " TODO(bc): deal with the undo file
     " TODO(bc): deal with folds
 
+    " TODO(bc): can we use appendbufline instead of deleting and appending?
     call s:deleteline(l:startline, l:endline)
     for l:line in split(l:text, "\n", 1)
       call append(l:startline-1, l:line)
@@ -1683,7 +1978,11 @@ function! s:handleFormatError(filename, msg) abort dict
 endfunction
 
 function! s:handleCodeActionError(filename, msg) abort dict
-  " TODO(bc): handle the error?
+  call go#util#EchoError(a:msg)
+endfunction
+
+function! s:handleRenameError(msg) abort dict
+  call go#util#EchoError(a:msg)
 endfunction
 
 function! s:textEditLess(left, right) abort
@@ -1706,7 +2005,7 @@ function! s:textEditLess(left, right) abort
     endif
   endif
 
-  " return 0, because a:left an a:right refer to the same position.
+  " return 0, because a:left and a:right refer to the same position.
   return 0
 endfunction
 
@@ -1724,12 +2023,26 @@ function! s:ensureWorkspace(dir)
     return
   endif
 
+
   let l:lsp = s:lspfactory.get()
+
   for l:dir in l:lsp.workspaceDirectories
     if l:dir == l:modroot
       return
     endif
   endfor
+
+  " Do not add directories that reside in the module cache if there's any
+  " other directories already in the workspace. In such a case, adding a
+  " module directory can potentially break jumping to definitions and finding
+  " references if the module in the cache has a replace directive in it the
+  " refers to a relative path.
+  if len(l:lsp.workspaceDirectories) > 0
+    let l:modcache = go#util#env('gomodcache')
+    if l:modroot[0:len(l:modcache)-1] ==# l:modcache
+      return
+    endif
+  endif
 
   call go#lsp#AddWorkspaceDirectory(l:modroot)
 endfunction
@@ -1751,7 +2064,11 @@ function! s:lineinfile(fname, line) abort
     if l:bufnr == -1 || len(l:bufinfo) == 0 || l:bufinfo[0].loaded == 0
       let l:filecontents = readfile(a:fname, '', a:line)
     else
-      let l:filecontents = getbufline(a:fname, a:line)
+      if exists('*getbufoneline')
+        let l:filecontents = [getbufoneline(a:fname, a:line)]
+      else
+        let l:filecontents = getbufline(a:fname, a:line)
+      endif
     endif
 
     if len(l:filecontents) == 0
@@ -1760,9 +2077,29 @@ function! s:lineinfile(fname, line) abort
 
     return l:filecontents[-1]
   catch
-    call go#util#EchoError(printf('%s (line %s): %s at %s', a:fname, a:line, v:exception, v:throwpoint))
+    "call go#util#EchoError(printf('%s (line %s): %s at %s', a:fname, a:line, v:exception, v:throwpoint))
     return -1
   endtry
+endfunction
+
+function! s:within(range, line, character) abort
+  if a:line < a:range.start.line
+    return 0
+  endif
+
+  if a:line > a:range.end.line
+    return 0
+  endif
+
+  if a:line == a:range.start.line && a:character < a:range.start.character
+    return 0
+  endif
+
+  if a:line == a:range.end.line && a:character > a:range.end.character
+    return 0
+  endif
+
+  return 1
 endfunction
 
 " restore Vi compatibility settings

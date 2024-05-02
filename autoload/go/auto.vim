@@ -12,6 +12,10 @@ function! go#auto#template_autocreate()
 endfunction
 
 function! go#auto#complete_done()
+  if &omnifunc isnot 'go#complete#Complete'
+    return
+  endif
+
   call s:echo_go_info()
   call s:ExpandSnippet()
 endfunction
@@ -31,6 +35,15 @@ function! s:ExpandSnippet() abort
     " the snippet may have a '{\}' in it. For UltiSnips, that should be spelled
     " \{}. fmt.Printf is such a snippet that can be used to demonstrate.
     let l:snippet = substitute(v:completed_item.word, '{\\}', '\{}', 'g')
+
+    " If there are no placeholders in the returned text, then do not expand
+    " the snippet, because Ultisnip does not support nested snippets, and the
+    " user may already be in an expanded snippet. While this isn't foolproof,
+    " because there may be placeholders in the snippet, it at least solves the
+    " simple case.
+    if stridx(l:snippet, '$') == -1
+      return
+    endif
     call UltiSnips#Anon(l:snippet, v:completed_item.word, '', 'i')
 "  elseif l:engine is 'neosnippet'
 "    " TODO(bc): make the anonymous expansion for neosnippet work
@@ -127,13 +140,13 @@ function! s:handler(timer_id)
     call go#tool#Info(0)
   endif
   if go#config#AutoSameids()
-    call go#guru#SameIds(0)
+    call go#sameids#SameIds(0)
   endif
   let s:timer_id = 0
 endfunction
 
 function! go#auto#fmt_autosave()
-  if !(isdirectory(expand('%:p:h')) && expand('<afile>:p') == expand('%:p'))
+  if !(isdirectory(expand('%:p:h')) && resolve(expand('<afile>:p')) == expand('%:p'))
     return
   endif
 
@@ -141,21 +154,28 @@ function! go#auto#fmt_autosave()
     return
   endif
 
-  if go#config#ImportsAutosave() && !(go#config#FmtAutosave() && go#config#FmtCommand() == 'goimports')
-    call go#fmt#Format(1)
+  " Order matters when formatting and adjusting imports, because of gopls'
+  " support for gofumpt. Gofumpt formatting will group all imports that look
+  " like a stdlib package (e.g. there's no '.' in the package path) together.
+  " When the local setting is provided, the only way to get the local imports
+  " grouped separately when gofumpt is used to format is to format first and
+  " then organize imports.
+
+  if go#config#FmtAutosave() && !(go#config#ImportsAutosave() && go#config#ImportsMode() == 'goimports')
+    call go#fmt#Format(0)
 
     " return early when the imports mode is goimports, because there's no need
     " to format again when goimports was run
-    if go#config#ImportsMode() == 'goimports'
+    if go#config#FmtCommand() == 'goimports'
       return
     endif
   endif
 
-  if !go#config#FmtAutosave()
+  if !go#config#ImportsAutosave()
     return
   endif
 
-  call go#fmt#Format(-1)
+  call go#fmt#Format(1)
 endfunction
 
 function! go#auto#metalinter_autosave()
@@ -168,7 +188,7 @@ function! go#auto#metalinter_autosave()
 endfunction
 
 function! go#auto#modfmt_autosave()
-  if !(go#config#ModFmtAutosave() && isdirectory(expand('%:p:h')) && expand('<afile>:p') == expand('%:p'))
+  if !(go#config#ModFmtAutosave() && isdirectory(expand('%:p:h')) && resolve(expand('<afile>:p')) == expand('%:p'))
     return
   endif
 
@@ -177,7 +197,7 @@ function! go#auto#modfmt_autosave()
 endfunction
 
 function! go#auto#asmfmt_autosave()
-  if !(go#config#AsmfmtAutosave() && isdirectory(expand('%:p:h')) && expand('<afile>:p') == expand('%:p'))
+  if !(go#config#AsmfmtAutosave() && isdirectory(expand('%:p:h')) && resolve(expand('<afile>:p')) == expand('%:p'))
     return
   endif
 

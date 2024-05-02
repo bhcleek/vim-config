@@ -43,14 +43,14 @@ shift $((OPTIND - 1))
 #####################################
 if [ -z "${1:-}" ]; then
   echo "unknown version: '${1:-}'"
-  echo "First argument must be 'vim-8.0' or 'nvim'."
+  echo "First argument must be 'vim-8.1', 'vim-8.2', or 'nvim'."
   exit 1
 fi
 
 vim=$1
 vimdir="/tmp/vim-go-test/$vim-install"
 export GOPATH=$vimdir
-export PATH=${GOPATH}/bin:$PATH
+export PATH="${GOPATH}/bin:$PATH"
 
 if [ ! -f "$vimdir/bin/vim" ]; then
   echo "$vimdir/bin/vim doesn't exist; did you install it with the install-vim script?"
@@ -66,7 +66,7 @@ fi
 [ -f '/tmp/vim-go-test/cov-report.txt' ]  && rm '/tmp/vim-go-test/cov-report.txt'
 
 # Run the actual tests.
-find "$vimgodir" -name '*_test.vim' | while read test_file; do
+find "$vimgodir" -name '*_test.vim' | sort | while read test_file; do
   [ -n "$run" -a "$(basename "$test_file")" != "$run" ] && continue
 
   "$vimgodir/scripts/run-vim" $coverage $vim -e \

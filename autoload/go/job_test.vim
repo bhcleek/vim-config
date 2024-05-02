@@ -7,10 +7,13 @@ func! Test_JobDirWithSpaces()
     return
   endif
 
+  let l:wd = getcwd()
   try
+    let g:go_gopls_enabled = 0
     let l:filename = 'job/dir has spaces/main.go'
     let l:tmp = gotest#load_fixture(l:filename)
-    exe 'cd ' . fnameescape(l:tmp . '/src/job/dir has spaces')
+    call go#util#Chdir(printf('%s/src/job/dir has spaces', l:tmp))
+    call go#util#Exec(['go', 'mod', 'init', 'vim-go.test/job'])
 
     " set the compiler type so that the errorformat option will be set
     " correctly.
@@ -38,6 +41,7 @@ func! Test_JobDirWithSpaces()
 
     call gotest#assert_quickfix(actual, l:expected)
   finally
+    call go#util#Chdir(l:wd)
     call delete(l:tmp, 'rf')
   endtry
 endfunc

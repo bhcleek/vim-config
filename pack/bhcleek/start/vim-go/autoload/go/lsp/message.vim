@@ -8,12 +8,18 @@ function! go#lsp#message#Initialize(wd) abort
           \ 'method': 'initialize',
           \ 'params': {
             \ 'processId': getpid(),
+            \ 'clientInfo': {
+              \ 'name': 'vim-go',
+            \ },
             \ 'rootUri': go#path#ToURI(a:wd),
             \ 'capabilities': {
               \ 'workspace': {
                 \ 'workspaceFolders': v:true,
                 \ 'didChangeConfiguration': {
                   \ 'dynamicRegistration': v:true,
+                \ },
+                \ 'workspaceEdit': {
+                \   'documentChanges': v:true,
                 \ },
                 \ 'configuration': v:true,
               \ },
@@ -29,7 +35,7 @@ function! go#lsp#message#Initialize(wd) abort
                 \ 'codeAction': {
                 \   'codeActionLiteralSupport': {
                 \     'codeActionKind': {
-                \       'valueSet': ['source.organizeImports', 'refactor.rewrite'],
+                \       'valueSet': ['source.organizeImports', 'refactor.rewrite', 'refactor.extract'],
                 \     },
                 \   },
                 \ },
@@ -75,14 +81,18 @@ function! go#lsp#message#CodeActionImports(file) abort
 endfunction
 
 function! go#lsp#message#CodeActionFillStruct(file, line, col) abort
-  return go#lsp#message#CodeActionRefactorRewrite(a:file, a:line, a:col, a:line, a:col)
+  return go#lsp#message#CodeActionRefactor('rewrite', a:file, a:line, a:col, a:line, a:col)
 endfunction
 
-function! go#lsp#message#CodeActionRefactorRewrite(file, startline, startcol, endline, endcol) abort
+function! go#lsp#message#CodeActionRefactorExtract(file, startline, startcol, endline, endcol) abort
+  return go#lsp#message#CodeActionRefactor('extract', a:file, a:startline, a:startcol, a:endline, a:endcol)
+endfunction
+
+function! go#lsp#message#CodeActionRefactor(action, file, startline, startcol, endline, endcol) abort
   let l:startpos = s:position(a:startline, a:startcol)
   let l:endpos = s:position(a:endline, a:endcol)
 
-  let l:request = s:codeAction('refactor.rewrite', a:file)
+  let l:request = s:codeAction(printf('refactor.%s', a:action), a:file)
 
   let l:request.params = extend(l:request.params,
         \ {
@@ -126,41 +136,29 @@ function! go#lsp#message#WorkspaceFoldersResult(dirs) abort
 endfunction
 
 function! go#lsp#message#Definition(file, line, col) abort
+  let l:params = s:textDocumentPositionParams(a:file,  a:line, a:col)
   return {
           \ 'notification': 0,
           \ 'method': 'textDocument/definition',
-          \ 'params': {
-          \   'textDocument': {
-          \       'uri': go#path#ToURI(a:file)
-          \   },
-          \   'position': s:position(a:line, a:col)
-          \ }
+          \ 'params': l:params,
        \ }
 endfunction
 
 function! go#lsp#message#TypeDefinition(file, line, col) abort
+  let l:params = s:textDocumentPositionParams(a:file,  a:line, a:col)
   return {
           \ 'notification': 0,
           \ 'method': 'textDocument/typeDefinition',
-          \ 'params': {
-          \   'textDocument': {
-          \       'uri': go#path#ToURI(a:file)
-          \   },
-          \   'position': s:position(a:line, a:col)
-          \ }
+          \ 'params': l:params,
        \ }
 endfunction
 
 function! go#lsp#message#Implementation(file, line, col) abort
+  let l:params = s:textDocumentPositionParams(a:file,  a:line, a:col)
   return {
           \ 'notification': 0,
           \ 'method': 'textDocument/implementation',
-          \ 'params': {
-          \   'textDocument': {
-          \       'uri': go#path#ToURI(a:file)
-          \   },
-          \   'position': s:position(a:line, a:col)
-          \ }
+          \ 'params': l:params,
        \ }
 endfunction
 
@@ -197,6 +195,21 @@ function! go#lsp#message#DidChange(file, content, version) abort
        \ }
 endfunction
 
+function! go#lsp#message#DidChangeWatchedFile(file, ct) abort
+  return {
+          \ 'notification': 1,
+          \ 'method': 'workspace/didChangeWatchedFiles',
+          \ 'params': {
+          \     'changes': [
+          \       {
+          \         'uri': go#path#ToURI(a:file),
+          \         'type': go#lsp#filechangetype#FileChangeType(a:ct),
+          \       },
+          \     ],
+          \ }
+       \ }
+endfunction
+
 function! go#lsp#message#DidClose(file) abort
   return {
           \ 'notification': 1,
@@ -210,44 +223,30 @@ function! go#lsp#message#DidClose(file) abort
 endfunction
 
 function! go#lsp#message#Completion(file, line, col) abort
+  let l:params = s:textDocumentPositionParams(a:file,  a:line, a:col)
   return {
           \ 'notification': 0,
           \ 'method': 'textDocument/completion',
-          \ 'params': {
-          \   'textDocument': {
-          \       'uri': go#path#ToURI(a:file)
-          \   },
-          \   'position': s:position(a:line, a:col),
-          \ }
+          \ 'params': l:params,
        \ }
 endfunction
 
 function! go#lsp#message#References(file, line, col) abort
+  let l:params = s:textDocumentPositionParams(a:file,  a:line, a:col)
+  let l:params.context = {'includeDeclaration': v:true}
   return {
           \ 'notification': 0,
           \ 'method': 'textDocument/references',
-          \ 'params': {
-          \   'textDocument': {
-          \       'uri': go#path#ToURI(a:file)
-          \   },
-          \   'position': s:position(a:line, a:col),
-          \   'context': {
-          \       'includeDeclaration': v:true,
-          \   },
-          \ }
+          \ 'params': l:params,
        \ }
 endfunction
 
 function! go#lsp#message#PrepareCallHierarchy(file, line, col) abort
+  let l:params = s:textDocumentPositionParams(a:file,  a:line, a:col)
   return {
           \ 'notification': 0,
           \ 'method': 'textDocument/prepareCallHierarchy',
-          \ 'params': {
-          \   'textDocument': {
-          \       'uri': go#path#ToURI(a:file)
-          \   },
-          \   'position': s:position(a:line, a:col),
-          \ }
+          \ 'params': l:params,
        \ }
 endfunction
 
@@ -262,15 +261,21 @@ function! go#lsp#message#IncomingCalls(item) abort
 endfunction
 
 function! go#lsp#message#Hover(file, line, col) abort
+  let l:params = s:textDocumentPositionParams(a:file,  a:line, a:col)
   return {
           \ 'notification': 0,
           \ 'method': 'textDocument/hover',
-          \ 'params': {
-          \   'textDocument': {
-          \       'uri': go#path#ToURI(a:file)
-          \   },
-          \   'position': s:position(a:line, a:col),
-          \ }
+          \ 'params': l:params,
+       \ }
+endfunction
+
+function! go#lsp#message#Rename(file, line, col, newName) abort
+  let l:params = s:textDocumentPositionParams(a:file,  a:line, a:col)
+  let l:params.newName = a:newName
+  return {
+          \ 'notification': 0,
+          \ 'method': 'textDocument/rename',
+          \ 'params': l:params,
        \ }
 endfunction
 
@@ -407,12 +412,30 @@ function! go#lsp#message#ApplyWorkspaceEditResponse(ok) abort
        \ }
 endfunction
 
+function! go#lsp#message#PrepareRename(file, line, col) abort
+  let l:params = s:textDocumentPositionParams(a:file,  a:line, a:col)
+  return {
+          \ 'notification': 0,
+          \ 'method': 'textDocument/prepareRename',
+          \ 'params': l:params,
+       \ }
+endfunction
+
 function! s:workspaceFolder(key, val) abort
   return {'uri': go#path#ToURI(a:val), 'name': a:val}
 endfunction
 
 function! s:position(line, col) abort
   return {'line': a:line, 'character': a:col}
+endfunction
+
+function! s:textDocumentPositionParams(fname, line, col) abort
+  return {
+          \   'textDocument': {
+          \       'uri': go#path#ToURI(a:fname)
+          \   },
+          \   'position': s:position(a:line, a:col),
+       \ }
 endfunction
 
 " restore Vi compatibility settings

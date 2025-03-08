@@ -113,14 +113,15 @@ set statusline=%!NormalStatusline()
 
 augroup colors
 	autocmd!
+
 	if !has('nvim')
 		"autocmd ColorScheme solarized highlight Search term=reverse cterm=reverse ctermfg=3 guifg=Black guibg=Yellow
-		autocmd ColorScheme solarized highlight CursorLine		cterm=bold,underline,nocombine ctermbg=bg guibg=bg gui=bold,underline,nocombine
-		autocmd ColorScheme solarized highlight CursorColumn 	cterm=bold,nocombine ctermbg=bg guibg=bg
+		autocmd ColorScheme solarized highlight CursorLine    cterm=bold,underline,nocombine ctermbg=bg guibg=bg gui=bold,underline,nocombine
+		autocmd ColorScheme solarized highlight CursorColumn  cterm=bold,nocombine ctermbg=bg guibg=bg
 	endif
 
 	" Pmenu colors taken from solarized8
-	autocmd ColorScheme solarized highlight Pmenu 			cterm=reverse ctermfg=246 ctermbg=236 gui=reverse guifg=#839496 guibg=#073642
+	autocmd ColorScheme solarized highlight Pmenu       cterm=reverse ctermfg=246 ctermbg=236 gui=reverse guifg=#839496 guibg=#073642
 	autocmd ColorScheme solarized highlight PmenuSel    cterm=reverse ctermfg=242 ctermbg=254 gui=reverse guifg=#586e75 guibg=#eee8d5
 	autocmd ColorScheme solarized highlight PmenuSbar   cterm=reverse ctermfg=254 ctermbg=246 gui=reverse guifg=#eee8d5 guibg=#839496
 	autocmd ColorScheme solarized highlight PmenuThumb  cterm=reverse ctermfg=246 ctermbg=235 gui=reverse guifg=#839496 guibg=#002b36
@@ -170,7 +171,7 @@ if &compatible
 else
 	set shiftwidth=2
 endif
-set shiftround 		" shift to the next multiple of shiftwidth column instead of shifting absolutely.
+set shiftround		" shift to the next multiple of shiftwidth column instead of shifting absolutely.
 
 if has("vms")
 	set nobackup		" do not keep a backup file, use versions instead
@@ -180,7 +181,7 @@ else
 endif
 set backupskip+=bzr_log*
 
-set autowrite 		" automatically save before commands like :make and :next
+set autowrite			" automatically save before commands like :make and :next
 
 if &history < 1000
 	set history=1000
@@ -193,7 +194,7 @@ set laststatus=2		" always show status line
 set ruler						" show the cursor position all the time
 set showcmd					" display incomplete commands
 set incsearch				" do incremental searching
-set wildmenu 				" enhance command line completion
+set wildmenu				" enhance command line completion
 
 set cursorline		" highlight the screen line of the cursor.
 set cursorcolumn	" highlight the screen column of the cursor.

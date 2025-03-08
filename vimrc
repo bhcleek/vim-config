@@ -118,6 +118,7 @@ augroup colors
 		"autocmd ColorScheme solarized highlight Search term=reverse cterm=reverse ctermfg=3 guifg=Black guibg=Yellow
 		autocmd ColorScheme solarized highlight CursorLine    cterm=bold,underline,nocombine ctermbg=bg guibg=bg gui=bold,underline,nocombine
 		autocmd ColorScheme solarized highlight CursorColumn  cterm=bold,nocombine ctermbg=bg guibg=bg
+		autocmd ColorScheme solarized highlight CursorLineNr  cterm=bold,nocombine ctermbg=bg guibg=bg
 	endif
 
 	" Pmenu colors taken from solarized8

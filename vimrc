@@ -388,7 +388,7 @@ function! <SID>SynStack()
   if !exists("*synstack")
     return
   endif
-  echo map(synstack(line('.'), col('.')), 'synIDattr(v:val, "name")')
+  echo printf('%s => %s', map(synstack(line('.'), col('.')), 'synIDattr(v:val, "name")'), synIDattr(synID(line('.'), col('.'), 1), 'name'))
 endfunc
 
 " vim:set ft=vim noet tabstop=2 shiftwidth=2 shiftround:

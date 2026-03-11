@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 #
 # See CONTRIBUTING.md for an explanation of this file.
@@ -118,11 +118,11 @@ if __name__ == "__main__":
             "multiplexer and race conditions in writing to the file system.",
         )
         p.add_option(
-            "-x",
-            "--exitfirst",
-            dest="exitfirst",
+            "-f",
+            "--failfast",
+            dest="failfast",
             action="store_true",
-            help="exit instantly on first error or failed test.",
+            help="Stop the test run on the first error or failure.",
         )
         p.add_option(
             "--vim",
@@ -149,19 +149,38 @@ if __name__ == "__main__":
             "It is ignored for vanilla Vim.",
         )
         p.add_option(
-            "--python3-host-prog",
-            dest="python3_host_prog",
-            type=str,
-            default="",
-            help="See --python-host-prog.",
-        )
-        p.add_option(
             "--expected-python-version",
             dest="expected_python_version",
             type=str,
             default="",
             help="If set, each test will check sys.version inside of vim to "
             "verify we are testing against the expected Python version.",
+        )
+        p.add_option(
+            "--remote-pdb",
+            dest="pdb_enable",
+            action="store_true",
+            help="If set, The remote pdb server will be run",
+        )
+        p.add_option(
+            "--remote-pdb-host",
+            dest="pdb_host",
+            type=str,
+            default="localhost",
+            help="Remote pdb server host",
+        )
+        p.add_option(
+            "--remote-pdb-port",
+            dest="pdb_port",
+            type=int,
+            default=8080,
+            help="Remote pdb server port",
+        )
+        p.add_option(
+            "--remote-pdb-non-blocking",
+            dest="pdb_block",
+            action="store_false",
+            help="If set, the server will not freeze vim on error",
         )
 
         o, args = p.parse_args()
@@ -181,14 +200,27 @@ if __name__ == "__main__":
 
         all_test_suites = unittest.defaultTestLoader.discover(start_dir="test")
 
-        vim = None
-        vim_flavor = "vim"
-        if options.interface == "tmux":
-            vim = VimInterfaceTmux(options.vim, options.session)
+        has_nvim = subprocess.check_output(
+            [options.vim, "-e", "-s", "-c", "verbose echo has('nvim')", "+q"],
+            stderr=subprocess.STDOUT,
+        )
+        if has_nvim == b"0":
             vim_flavor = "vim"
-        else:
-            vim = VimInterfaceTmuxNeovim(options.vim, options.session)
+        elif has_nvim == b"1":
             vim_flavor = "neovim"
+        else:
+            assert 0, "Unexpected output, has_nvim=%r" % has_nvim
+
+        if options.interface == "tmux":
+            assert vim_flavor == "vim", (
+                "Interface is tmux, but vim_flavor is %s" % vim_flavor
+            )
+            vim = VimInterfaceTmux(options.vim, options.session)
+        else:
+            assert vim_flavor == "neovim", (
+                "Interface is TmuxNeovim, but vim_flavor is %s" % vim_flavor
+            )
+            vim = VimInterfaceTmuxNeovim(options.vim, options.session)
 
         if not options.clone_plugins and platform.system() == "Windows":
             raise RuntimeError(
@@ -207,10 +239,13 @@ if __name__ == "__main__":
             test.retries = options.retries
             test.test_plugins = options.plugins
             test.python_host_prog = options.python_host_prog
-            test.python3_host_prog = options.python3_host_prog
             test.expected_python_version = options.expected_python_version
             test.vim = vim
             test.vim_flavor = vim_flavor
+            test.pdb_enable = options.pdb_enable
+            test.pdb_host = options.pdb_host
+            test.pdb_port = options.pdb_port
+            test.pdb_block = options.pdb_block
             all_other_plugins.update(test.plugins)
 
             if len(selected_tests):
@@ -227,12 +262,10 @@ if __name__ == "__main__":
 
         v = 2 if options.verbose else 1
         successfull = (
-            unittest.TextTestRunner(verbosity=v, failfast=options.exitfirst)
+            unittest.TextTestRunner(verbosity=v, failfast=options.failfast)
             .run(suite)
             .wasSuccessful()
         )
         return 0 if successfull else 1
 
     sys.exit(main())
-
-# vim:fileencoding=utf-8:

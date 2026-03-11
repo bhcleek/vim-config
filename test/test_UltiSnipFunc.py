@@ -86,7 +86,7 @@ hi4"""
 
     def _before_test(self):
         self.vim.send_to_vim(
-            ":set langmap=йq,цw,уe,кr,еt,нy,гu,шi,щo,зp,х[,ъ],фa,ыs,вd,аf,пg,рh,оj,лk,дl,ж\\;,э',яz,чx,сc,мv,иb,тn,ьm,ю.,ё',ЙQ,ЦW,УE,КR,ЕT,НY,ГU,ШI,ЩO,ЗP,Х\{,Ъ\},ФA,ЫS,ВD,АF,ПG,РH,ОJ,ЛK,ДL,Ж\:,Э\",ЯZ,ЧX,СC,МV,ИB,ТN,ЬM,Б\<,Ю\>\n"
+            ":set langmap=йq,цw,уe,кr,еt,нy,гu,шi,щo,зp,х[,ъ],фa,ыs,вd,аf,пg,рh,оj,лk,дl,ж\\;,э',яz,чx,сc,мv,иb,тn,ьm,ю.,ё',ЙQ,ЦW,УE,КR,ЕT,НY,ГU,ШI,ЩO,ЗP,Х\\{,Ъ\\},ФA,ЫS,ВD,АF,ПG,РH,ОJ,ЛK,ДL,Ж\:,Э\",ЯZ,ЧX,СC,МV,ИB,ТN,ЬM,Б\<,Ю\>\n"
         )
 
 
@@ -139,15 +139,15 @@ class AddNewSnippetSource(_VimTest):
         "blumba"
         + EX
         + ESC
-        + ":%(python)s UltiSnips_Manager.register_snippet_source("
+        + ":py3 UltiSnips_Manager.register_snippet_source("
         + "'temp', MySnippetSource())\n"
         + "oblumba"
         + EX
         + ESC
-        + ":%(python)s UltiSnips_Manager.unregister_snippet_source('temp')\n"
+        + ":py3 UltiSnips_Manager.unregister_snippet_source('temp')\n"
         + "oblumba"
         + EX
-    ) % {"python": "py3" if PYTHON3 else "py"}
+    )
     wanted = "blumba" + EX + "\n" + "this is a dynamic snippet" + "\n" + "blumba" + EX
 
     def _extra_vim_config(self, vim_config):
@@ -169,5 +169,4 @@ class MySnippetSource(SnippetSource):
     return []
 """,
         )
-        pyfile = "py3file" if PYTHON3 else "pyfile"
-        vim_config.append("%s %s" % (pyfile, self.name_temp("snippet_source.py")))
+        vim_config.append("py3file %s" % (self.name_temp("snippet_source.py")))

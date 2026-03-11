@@ -2,9 +2,9 @@
 
 import vim
 from UltiSnips import vim_helper
-from UltiSnips.compatibility import as_unicode, as_vimencoding
-from UltiSnips.position import Position
 from UltiSnips.diff import diff
+from UltiSnips.error import PebkacError
+from UltiSnips.position import Position
 
 from contextlib import contextmanager
 
@@ -82,7 +82,7 @@ class VimBufferProxy(vim_helper.VimBuffer):
         Raises exception if buffer is changes beyound proxy object.
         """
         if self.is_buffer_changed_outside():
-            raise RuntimeError(
+            raise PebkacError(
                 "buffer was modified using vim.command or "
                 + "vim.current.buffer; that changes are untrackable and leads to "
                 + "errors in snippet expansion; use special variable `snip.buffer` "
@@ -96,11 +96,11 @@ class VimBufferProxy(vim_helper.VimBuffer):
         changes and applies them to the current snippet stack.
         """
         if isinstance(key, slice):
-            value = [as_vimencoding(line) for line in value]
+            value = [line for line in value]
             changes = list(self._get_diff(key.start, key.stop, value))
             self._buffer[key.start : key.stop] = [line.strip("\n") for line in value]
         else:
-            value = as_vimencoding(value)
+            value = value
             changes = list(self._get_line_diff(key, self._buffer[key], value))
             self._buffer[key] = value
 
@@ -122,10 +122,7 @@ class VimBufferProxy(vim_helper.VimBuffer):
         """
         Just passing call to the vim.current.window.buffer.__getitem__.
         """
-        if isinstance(key, slice):
-            return [as_unicode(l) for l in self._buffer[key.start : key.stop]]
-        else:
-            return as_unicode(self._buffer[key])
+        return self._buffer[key]
 
     def __getslice__(self, i, j):
         """
@@ -147,7 +144,7 @@ class VimBufferProxy(vim_helper.VimBuffer):
             line_number = len(self)
         if not isinstance(line, list):
             line = [line]
-        self[line_number:line_number] = [as_vimencoding(l) for l in line]
+        self[line_number:line_number] = [l for l in line]
 
     def __delitem__(self, key):
         if isinstance(key, slice):
@@ -200,7 +197,6 @@ class VimBufferProxy(vim_helper.VimBuffer):
             diff = Position(direction, 0)
             if len(change) != 5:
                 diff = Position(0, direction * len(change_text))
-            print(change, diff)
 
             self._snippets_stack[0]._move(Position(line_number, column_number), diff)
         else:

@@ -1,4 +1,4 @@
-if exists("b:did_autoload_ultisnips_map_keys") || !exists("g:_uspy")
+if exists("b:did_autoload_ultisnips_map_keys")
    finish
 endif
 let b:did_autoload_ultisnips_map_keys = 1
@@ -54,7 +54,13 @@ if !exists("g:UltiSnipsEnableSnipMate")
 endif
 
 function! UltiSnips#map_keys#MapKeys() abort
-    if g:UltiSnipsExpandTrigger == g:UltiSnipsJumpForwardTrigger
+    if exists("g:UltiSnipsExpandOrJumpTrigger")
+        exec "inoremap <silent> " . g:UltiSnipsExpandOrJumpTrigger . " <C-R>=UltiSnips#ExpandSnippetOrJump()<cr>"
+        exec "snoremap <silent> " . g:UltiSnipsExpandOrJumpTrigger . " <Esc>:call UltiSnips#ExpandSnippetOrJump()<cr>"
+    elseif exists("g:UltiSnipsJumpOrExpandTrigger")
+        exec "inoremap <silent> " . g:UltiSnipsJumpOrExpandTrigger . " <C-R>=UltiSnips#JumpOrExpandSnippet()<cr>"
+        exec "snoremap <silent> " . g:UltiSnipsJumpOrExpandTrigger . " <Esc>:call UltiSnips#JumpOrExpandSnippet()<cr>"
+    elseif g:UltiSnipsExpandTrigger == g:UltiSnipsJumpForwardTrigger
         exec "inoremap <silent> " . g:UltiSnipsExpandTrigger . " <C-R>=UltiSnips#ExpandSnippetOrJump()<cr>"
         exec "snoremap <silent> " . g:UltiSnipsExpandTrigger . " <Esc>:call UltiSnips#ExpandSnippetOrJump()<cr>"
     else

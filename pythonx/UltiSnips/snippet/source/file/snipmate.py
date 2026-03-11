@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 
 """Parses snipMate files."""
@@ -9,7 +9,7 @@ import glob
 from UltiSnips import vim_helper
 from UltiSnips.snippet.definition import SnipMateSnippetDefinition
 from UltiSnips.snippet.source.file.base import SnippetFileSource
-from UltiSnips.snippet.source.file.common import handle_extends
+from UltiSnips.snippet.source.file.common import handle_extends, normalize_file_path
 from UltiSnips.text import LineIterator, head_tail
 
 
@@ -44,7 +44,7 @@ def _snipmate_files_for(ft):
     ]
     ret = set()
     for rtp in vim_helper.eval("&runtimepath").split(","):
-        path = os.path.realpath(os.path.expanduser(os.path.join(rtp, "snippets")))
+        path = normalize_file_path(os.path.expanduser(os.path.join(rtp, "snippets")))
         for pattern in patterns:
             for fn in glob.glob(os.path.join(path, pattern)):
                 ret.add(fn)
@@ -70,7 +70,7 @@ def _parse_snippet_file(content, full_filename):
 
 
 def _parse_snippet(line, lines, filename):
-    """Parse a snippet defintions."""
+    """Parse a snippet definition."""
     start_line_index = lines.line_index
     trigger, description = head_tail(line[len("snippet") :].lstrip())
     content = ""
@@ -109,7 +109,7 @@ def _parse_snippets_file(data, filename):
         head, tail = head_tail(line)
         if head == "extends":
             yield handle_extends(tail, lines.line_index)
-        elif head in "snippet":
+        elif head == "snippet":
             snippet = _parse_snippet(line, lines, filename)
             if snippet is not None:
                 yield snippet

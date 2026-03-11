@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 
 """Base class for snippet sources."""
@@ -8,13 +8,14 @@ from collections import defaultdict
 from UltiSnips.snippet.source.snippet_dictionary import SnippetDictionary
 
 
-class SnippetSource(object):
+class SnippetSource:
 
     """See module docstring."""
 
     def __init__(self):
         self._snippets = defaultdict(SnippetDictionary)
         self._extends = defaultdict(set)
+        self.must_ensure = True
 
     def ensure(self, filetypes):
         """Ensures that snippets are loaded."""

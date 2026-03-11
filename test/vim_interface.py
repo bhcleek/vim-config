@@ -8,7 +8,7 @@ import tempfile
 import textwrap
 import time
 
-from test.constant import ARR_D, ARR_L, ARR_R, ARR_U, BS, ESC, PYTHON3, SEQUENCES
+from test.constant import ARR_D, ARR_L, ARR_R, ARR_U, BS, ESC, SEQUENCES
 
 
 def wait_until_file_exists(file_path, times=None, interval=0.01):
@@ -21,12 +21,10 @@ def wait_until_file_exists(file_path, times=None, interval=0.01):
     return False
 
 
-def read_text_file(filename):
-    """Reads the contens of a text file."""
-    if PYTHON3:
-        return open(filename, "r", encoding="utf-8").read()
-    else:
-        return open(filename, "r").read()
+def _read_text_file(filename):
+    """Reads the content of a text file."""
+    with open(filename, "r", encoding="utf-8") as to_read:
+        return to_read.read()
 
 
 def is_process_running(pid):
@@ -41,11 +39,6 @@ def is_process_running(pid):
         return True
 
 
-def silent_call(cmd):
-    """Calls 'cmd' and returns the exit value."""
-    return subprocess.call(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
-
-
 def create_directory(dirname):
     """Creates 'dirname' and its parents if it does not exist."""
     try:
@@ -54,7 +47,7 @@ def create_directory(dirname):
         pass
 
 
-class TempFileManager(object):
+class TempFileManager:
     def __init__(self, name=""):
         self._temp_dir = tempfile.mkdtemp(prefix="UltiSnipsTest_" + name)
 
@@ -64,12 +57,8 @@ class TempFileManager(object):
     def write_temp(self, file_path, content):
         abs_path = self.name_temp(file_path)
         create_directory(os.path.dirname(abs_path))
-        if PYTHON3:
-            with open(abs_path, "w", encoding="utf-8") as f:
-                f.write(content)
-        else:
-            with open(abs_path, "w") as f:
-                f.write(content)
+        with open(abs_path, "w", encoding="utf-8") as f:
+            f.write(content)
         return abs_path
 
     def unique_name_temp(self, suffix="", prefix=""):
@@ -87,33 +76,24 @@ class VimInterface(TempFileManager):
     def __init__(self, vim_executable, name):
         TempFileManager.__init__(self, name)
         self._vim_executable = vim_executable
-        self._version = None
 
     @property
     def vim_executable(self):
         return self._vim_executable
 
     def has_version(self, major, minor, patchlevel):
-        if self._version is None:
-            output = subprocess.check_output([self._vim_executable, "--version"])
-
-            _major = 0
-            _minor = 0
-            _patch = 0
-            for line in output.decode("utf-8").split("\n"):
-                if line.startswith("VIM - Vi IMproved"):
-                    _major, _minor = map(int, line.split()[4].split("."))
-                if line.startswith("Included patches:"):
-                    _patch = int(line.split(":")[-1].strip().split("-")[-1])
-            self._version = (_major, _minor, _patch)
-
-        return self._version >= (major, minor, patchlevel)
+        cmd = [
+            self._vim_executable, "-e", "-c",
+            "if has('patch-%d.%d.%d') | quit | else | cquit | endif"
+                % (major, minor, patchlevel),
+        ]
+        return not subprocess.call(cmd, stdout=subprocess.DEVNULL)
 
     def get_buffer_data(self):
         buffer_path = self.unique_name_temp(prefix="buffer_")
         self.send_to_vim(ESC + ":w! %s\n" % buffer_path)
         if wait_until_file_exists(buffer_path, 50):
-            return read_text_file(buffer_path)[:-1]
+            return _read_text_file(buffer_path)[:-1]
 
     def send_to_terminal(self, s):
         """Types 's' into the terminal."""
@@ -124,21 +104,26 @@ class VimInterface(TempFileManager):
         raise NotImplementedError()
 
     def launch(self, config=[]):
-        """Returns the python version in Vim as a string, e.g. '2.7'"""
+        """Returns the python version in Vim as a string, e.g. '3.7'"""
         pid_file = self.name_temp("vim.pid")
+        version_file = self.name_temp("vim_version")
+        if os.path.exists(version_file):
+            os.remove(version_file)
         done_file = self.name_temp("loading_done")
         if os.path.exists(done_file):
             os.remove(done_file)
 
         post_config = []
-        post_config.append("%s << EOF" % ("py3" if PYTHON3 else "py"))
+        post_config.append("py3 << EOF")
         post_config.append("import vim, sys")
         post_config.append(
             "with open('%s', 'w') as pid_file: pid_file.write(vim.eval('getpid()'))"
             % pid_file
         )
+        post_config.append("with open('%s', 'w') as version_file:" % version_file)
+        post_config.append("    version_file.write('%i.%i.%i' % sys.version_info[:3])")
         post_config.append("with open('%s', 'w') as done_file:" % done_file)
-        post_config.append("    done_file.write('%i.%i.%i' % sys.version_info[:3])")
+        post_config.append("    done_file.write('all_done!')")
         post_config.append("EOF")
 
         config_path = self.write_temp(
@@ -154,13 +139,13 @@ class VimInterface(TempFileManager):
             % (self._vim_executable, config_path)
         )
         wait_until_file_exists(done_file)
-        self._vim_pid = int(read_text_file(pid_file))
-        return read_text_file(done_file).strip()
+        self._vim_pid = int(_read_text_file(pid_file))
+        return _read_text_file(version_file).strip()
 
     def leave_with_wait(self):
         self.send_to_vim(3 * ESC + ":qa!\n")
         while is_process_running(self._vim_pid):
-            time.sleep(0.2)
+            time.sleep(0.01)
 
 
 class VimInterfaceTmux(VimInterface):
@@ -175,9 +160,11 @@ class VimInterfaceTmux(VimInterface):
         s = s.replace(";", r"\;")
 
         if len(s) == 1:
-            silent_call(["tmux", "send-keys", "-t", self.session, hex(ord(s))])
+            subprocess.check_call(
+                ["tmux", "send-keys", "-t", self.session, hex(ord(s))]
+            )
         else:
-            silent_call(["tmux", "send-keys", "-t", self.session, "-l", s])
+            subprocess.check_call(["tmux", "send-keys", "-t", self.session, "-l", s])
 
     def send_to_terminal(self, s):
         return self._send(s)
@@ -189,8 +176,7 @@ class VimInterfaceTmux(VimInterface):
         stdout, _ = subprocess.Popen(
             ["tmux", "-V"], stdout=subprocess.PIPE, stderr=subprocess.PIPE
         ).communicate()
-        if PYTHON3:
-            stdout = stdout.decode("utf-8")
+        stdout = stdout.decode("utf-8")
         m = re.match(r"tmux (\d+).(\d+)", stdout)
         if not m or not (int(m.group(1)), int(m.group(2))) >= (1, 8):
             raise RuntimeError("Need at least tmux 1.8, you have %s." % stdout.strip())

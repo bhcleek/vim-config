@@ -60,9 +60,9 @@ class TabStop_Shell_ShebangPython(_VimTest):
     snippets = (
         "test",
         """Hallo ${1:now `#!/usr/bin/env %s
-print "Hallo Welt"
+print("Hallo Welt")
 `} end"""
-        % (os.environ.get("PYTHON", "python2"),),
+        % os.environ.get("PYTHON", "python3"),
     )
     keys = "test" + EX + JF + "and more"
     wanted = "Hallo now Hallo Welt endand more"
@@ -494,7 +494,7 @@ class PythonCode_CanOverwriteTabstop(_VimTest):
         """$1`!p if len(t[1]) > 3 and len(t[2]) == 0:
             t[2] = t[1][2:];
             t[1] = t[1][:2] + '-\\n\\t';
-            vim.command('call feedkeys("\<End>", "n")');
+            vim.command('call feedkeys("\\\\<End>", "n")');
             `$2""",
     )
     keys = "test" + EX + "blah" + ", bah"
@@ -541,13 +541,8 @@ snip.rv = "placeholder: " + snip.p.current_text`)""",
 first second (placeholder: )"""
 
 
-# Tests for https://bugs.launchpad.net/bugs/1259349
-
-
-class Python_WeirdScoping_Error(_VimTest):
-    snippets = (
-        "test",
-        "h`!p import re; snip.rv = '%i' % len([re.search for i in 'aiiia'])`b",
-    )
+class Python_SnipRvCanBeNonText(_VimTest):
+    # Test for https://github.com/SirVer/ultisnips/issues/1132
+    snippets = ("test", "`!p snip.rv = 5`")
     keys = "test" + EX
-    wanted = "h5b"
+    wanted = "5"

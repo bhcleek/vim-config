@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 
 """Base classes for all text objects."""
@@ -41,7 +41,7 @@ def _replace_text(buf, start, end, text):
 # pylint: disable=protected-access
 
 
-class TextObject(object):
+class TextObject:
 
     """Represents any object in the text that has a span in any ways."""
 

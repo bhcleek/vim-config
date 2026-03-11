@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 
 """Contains the SnippetManager facade used by all Vim Functions."""
@@ -6,22 +6,25 @@
 from collections import defaultdict
 from contextlib import contextmanager
 import os
-import platform
-import sys
+from typing import Set
+from pathlib import Path
 import vim
 
 from UltiSnips import vim_helper
 from UltiSnips import err_to_scratch_buffer
 from UltiSnips.diff import diff, guess_edit
-from UltiSnips.compatibility import as_unicode
-from UltiSnips.position import Position
+from UltiSnips.position import Position, JumpDirection
 from UltiSnips.snippet.definition import UltiSnipsSnippetDefinition
 from UltiSnips.snippet.source import (
-    UltiSnipsFileSource,
+    AddedSnippetsSource,
     SnipMateFileSource,
+    UltiSnipsFileSource,
+    find_all_snippet_directories,
     find_all_snippet_files,
     find_snippet_files,
-    AddedSnippetsSource,
+)
+from UltiSnips.snippet.source.file.common import (
+    normalize_file_path,
 )
 from UltiSnips.text import escape
 from UltiSnips.vim_state import VimState, VisualContentPreserver
@@ -47,20 +50,65 @@ def _ask_user(a, formatted):
         return None
 
 
+def _show_user_warning(msg):
+    """Shows a Vim warning message to the user."""
+    vim_helper.command("echohl WarningMsg")
+    vim_helper.command('echom "%s"' % msg.replace('"', '\\"'))
+    vim_helper.command("echohl None")
+
+
 def _ask_snippets(snippets):
     """Given a list of snippets, ask the user which one they want to use, and
     return it."""
     display = [
-        as_unicode("%i: %s (%s)")
-        % (i + 1, escape(s.description, "\\"), escape(s.location, "\\"))
+        "%i: %s (%s)" % (i + 1, escape(s.description, "\\"), escape(s.location, "\\"))
         for i, s in enumerate(snippets)
     ]
     return _ask_user(snippets, display)
 
 
+def _select_and_create_file_to_edit(potentials: Set[str]) -> str:
+    assert len(potentials) >= 1
+
+    file_to_edit = ""
+    if len(potentials) > 1:
+        files = sorted(potentials)
+        exists = [os.path.exists(f) for f in files]
+        formatted = [
+            "%s %i: %s" % ("*" if exists else " ", i, escape(fn, "\\"))
+            for i, (fn, exists) in enumerate(zip(files, exists), 1)
+        ]
+        file_to_edit = _ask_user(files, formatted)
+        if file_to_edit is None:
+            return ""
+    else:
+        file_to_edit = potentials.pop()
+
+    dirname = os.path.dirname(file_to_edit)
+    if not os.path.exists(dirname):
+        os.makedirs(dirname)
+
+    return file_to_edit
+
+
+def _get_potential_snippet_filenames_to_edit(
+    snippet_dir: str, filetypes: str
+) -> Set[str]:
+    potentials = set()
+    for ft in filetypes:
+        ft_snippets_files = find_snippet_files(ft, snippet_dir)
+        potentials.update(ft_snippets_files)
+        if not ft_snippets_files:
+            # If there is no snippet file yet, we just default to `ft.snippets`.
+            fpath = os.path.join(snippet_dir, ft + ".snippets")
+            fpath = normalize_file_path(fpath)
+            potentials.add(fpath)
+    return potentials
+
+
 # TODO(sirver): This class is still too long. It should only contain public
 # facing methods, most of the private methods should be moved outside of it.
-class SnippetManager(object):
+class SnippetManager:
 
     """The main entry point for all UltiSnips functionality.
 
@@ -82,6 +130,7 @@ class SnippetManager(object):
         self._visual_content = VisualContentPreserver()
 
         self._snippet_sources = []
+        self._filetypes = []
 
         self._snip_expanded_in_action = False
         self._inside_action = False
@@ -98,6 +147,10 @@ class SnippetManager(object):
         if enable_snipmate == "1":
             self.register_snippet_source("snipmate_files", SnipMateFileSource())
 
+        self._autotrigger = True
+        if vim_helper.eval("exists('g:UltiSnipsAutoTrigger')") == "1":
+            self._autotrigger = vim_helper.eval("g:UltiSnipsAutoTrigger") == "1"
+
         self._should_update_textobjects = False
         self._should_reset_visual = False
 
@@ -107,8 +160,8 @@ class SnippetManager(object):
     def jump_forwards(self):
         """Jumps to the next tabstop."""
         vim_helper.command("let g:ulti_jump_forwards_res = 1")
-        vim_helper.command("let &undolevels = &undolevels")
-        if not self._jump():
+        vim_helper.command("let &g:undolevels = &g:undolevels")
+        if not self._jump(JumpDirection.FORWARD):
             vim_helper.command("let g:ulti_jump_forwards_res = 0")
             return self._handle_failure(self.forward_trigger)
         return None
@@ -117,8 +170,8 @@ class SnippetManager(object):
     def jump_backwards(self):
         """Jumps to the previous tabstop."""
         vim_helper.command("let g:ulti_jump_backwards_res = 1")
-        vim_helper.command("let &undolevels = &undolevels")
-        if not self._jump(True):
+        vim_helper.command("let &g:undolevels = &g:undolevels")
+        if not self._jump(JumpDirection.BACKWARD):
             vim_helper.command("let g:ulti_jump_backwards_res = 0")
             return self._handle_failure(self.backward_trigger)
         return None
@@ -129,11 +182,11 @@ class SnippetManager(object):
         vim_helper.command("let g:ulti_expand_res = 1")
         if not self._try_expand():
             vim_helper.command("let g:ulti_expand_res = 0")
-            self._handle_failure(self.expand_trigger)
+            self._handle_failure(self.expand_trigger, True)
 
     @err_to_scratch_buffer.wrap
     def expand_or_jump(self):
-        """This function is used for people who wants to have the same trigger
+        """This function is used for people who want to have the same trigger
         for expansion and forward jumping.
 
         It first tries to expand a snippet, if this fails, it tries to
@@ -144,10 +197,28 @@ class SnippetManager(object):
         rv = self._try_expand()
         if not rv:
             vim_helper.command("let g:ulti_expand_or_jump_res = 2")
-            rv = self._jump()
+            rv = self._jump(JumpDirection.FORWARD)
         if not rv:
             vim_helper.command("let g:ulti_expand_or_jump_res = 0")
-            self._handle_failure(self.expand_trigger)
+            self._handle_failure(self.expand_trigger, True)
+
+    @err_to_scratch_buffer.wrap
+    def jump_or_expand(self):
+        """This function is used for people who want to have the same trigger
+        for expansion and forward jumping.
+
+        It first tries to jump forward, if this fails, it tries to
+        expand a snippet.
+
+        """
+        vim_helper.command("let g:ulti_expand_or_jump_res = 2")
+        rv = self._jump(JumpDirection.FORWARD)
+        if not rv:
+            vim_helper.command("let g:ulti_expand_or_jump_res = 1")
+            rv = self._try_expand()
+        if not rv:
+            vim_helper.command("let g:ulti_expand_or_jump_res = 0")
+            self._handle_failure(self.expand_trigger, True)
 
     @err_to_scratch_buffer.wrap
     def snippets_in_current_scope(self, search_all):
@@ -165,8 +236,7 @@ class SnippetManager(object):
 
             location = snip.location if snip.location else ""
 
-            key = as_unicode(snip.trigger)
-            description = as_unicode(description)
+            key = snip.trigger
 
             # remove surrounding "" or '' in snippet description if it exists
             if len(description) > 2:
@@ -174,20 +244,18 @@ class SnippetManager(object):
                     description = description[1:-1]
 
             vim_helper.command(
-                as_unicode("let g:current_ulti_dict['{key}'] = '{val}'").format(
+                "let g:current_ulti_dict['{key}'] = '{val}'".format(
                     key=key.replace("'", "''"), val=description.replace("'", "''")
                 )
             )
 
             if search_all:
                 vim_helper.command(
-                    as_unicode(
-                        (
-                            "let g:current_ulti_dict_info['{key}'] = {{"
-                            "'description': '{description}',"
-                            "'location': '{location}',"
-                            "}}"
-                        )
+                    (
+                        "let g:current_ulti_dict_info['{key}'] = {{"
+                        "'description': '{description}',"
+                        "'location': '{location}',"
+                        "}}"
                     ).format(
                         key=key.replace("'", "''"),
                         location=location.replace("'", "''"),
@@ -203,7 +271,7 @@ class SnippetManager(object):
         snippets = self._snips(before, True)
 
         if len(snippets) == 0:
-            self._handle_failure(self.backward_trigger)
+            self._handle_failure(vim.eval("g:UltiSnipsListSnippets"))
             return True
 
         # Sort snippets alphabetically
@@ -292,7 +360,8 @@ class SnippetManager(object):
             + ["all"]
         )
 
-    def add_buffer_filetypes(self, filetypes):
+    def add_buffer_filetypes(self, filetypes: str):
+        """'filetypes' is a dotted filetype list, for example 'cuda.cpp'"""
         buf_fts = self._added_buffer_filetypes[vim_helper.buf.number]
         idx = -1
         for ft in filetypes.split("."):
@@ -442,12 +511,13 @@ class SnippetManager(object):
             vim_helper.command("augroup UltiSnips")
             vim_helper.command("autocmd!")
             vim_helper.command("augroup END")
-            self._inner_state_up = False
         except vim_helper.error:
             # This happens when a preview window was opened. This issues
             # CursorMoved, but not BufLeave. We have no way to unmap, until we
             # are back in our buffer
             pass
+        finally:
+            self._inner_state_up = False
 
     @err_to_scratch_buffer.wrap
     def _save_last_visual_selection(self):
@@ -492,7 +562,7 @@ class SnippetManager(object):
         if not self._active_snippets:
             self._teardown_inner_state()
 
-    def _jump(self, backwards=False):
+    def _jump(self, jump_direction: JumpDirection):
         """Helper method that does the actual jump."""
         if self._should_update_textobjects:
             self._should_reset_visual = False
@@ -522,7 +592,7 @@ class SnippetManager(object):
                 snippet_for_action = None
 
             if self._current_snippet:
-                ntab = self._current_snippet.select_next_tab(backwards)
+                ntab = self._current_snippet.select_next_tab(jump_direction)
                 if ntab:
                     if self._current_snippet.snippet.has_option("s"):
                         lineno = vim_helper.buf.cursor.line
@@ -557,7 +627,7 @@ class SnippetManager(object):
                     # have been popped when its final tabstop was used.
                     # Cleanup by removing current snippet and recursing.
                     self._current_snippet_is_done()
-                    jumped = self._jump(backwards)
+                    jumped = self._jump(jump_direction)
 
             if jumped:
                 if self._ctab:
@@ -570,7 +640,7 @@ class SnippetManager(object):
                 with use_proxy_buffer(stack_for_post_jump, self._vstate):
                     snippet_for_action.snippet.do_post_jump(
                         ntab.number,
-                        -1 if backwards else 1,
+                        -1 if jump_direction == JumpDirection.BACKWARD else 1,
                         stack_for_post_jump,
                         snippet_for_action,
                     )
@@ -581,11 +651,14 @@ class SnippetManager(object):
         """Called whenever we leave the insert mode."""
         self._vstate.restore_unnamed_register()
 
-    def _handle_failure(self, trigger):
+    def _handle_failure(self, trigger, pass_through=False):
         """Mainly make sure that we play well with SuperTab."""
         if trigger.lower() == "<tab>":
             feedkey = "\\" + trigger
         elif trigger.lower() == "<s-tab>":
+            feedkey = "\\" + trigger
+        elif pass_through:
+            # pass through the trigger key if it did nothing
             feedkey = "\\" + trigger
         else:
             feedkey = None
@@ -726,27 +799,30 @@ class SnippetManager(object):
             with use_proxy_buffer(self._active_snippets, self._vstate):
                 with self._action_context():
                     snippet.do_post_expand(
-                        snippet_instance._start,
-                        snippet_instance._end,
+                        snippet_instance.start,
+                        snippet_instance.end,
                         self._active_snippets,
                     )
 
             self._vstate.remember_buffer(self._active_snippets[0])
 
             if not self._snip_expanded_in_action:
-                self._jump()
+                self._jump(JumpDirection.FORWARD)
             elif self._current_snippet.current_text != "":
-                self._jump()
+                self._jump(JumpDirection.FORWARD)
             else:
                 self._current_snippet_is_done()
 
             if self._inside_action:
                 self._snip_expanded_in_action = True
 
+    def _can_expand(self, autotrigger_only=False):
+        before = vim_helper.buf.line_till_cursor
+        return before, self._snips(before, False, autotrigger_only)
+
     def _try_expand(self, autotrigger_only=False):
         """Try to expand a snippet in the current place."""
-        before = vim_helper.buf.line_till_cursor
-        snippets = self._snips(before, False, autotrigger_only)
+        before, snippets = self._can_expand(autotrigger_only)
         if snippets:
             # prefer snippets with context if any
             snippets_with_context = [s for s in snippets if s.context]
@@ -755,7 +831,7 @@ class SnippetManager(object):
         if not snippets:
             # No snippet found
             return False
-        vim_helper.command("let &undolevels = &undolevels")
+        vim_helper.command("let &g:undolevels = &g:undolevels")
         if len(snippets) == 1:
             snippet = snippets[0]
         else:
@@ -763,8 +839,27 @@ class SnippetManager(object):
             if not snippet:
                 return True
         self._do_snippet(snippet, before)
-        vim_helper.command("let &undolevels = &undolevels")
+        vim_helper.command("let &g:undolevels = &g:undolevels")
         return True
+
+    def can_expand(self, autotrigger_only=False):
+        """Check if we would be able to successfully find a snippet in the current position."""
+        return bool(self._can_expand(autotrigger_only)[1])
+
+    def can_jump(self, direction):
+        if self._current_snippet == None:
+            return False
+        return self._current_snippet.has_next_tab(direction)
+
+    def can_jump_forwards(self):
+        return self.can_jump(JumpDirection.FORWARD)
+
+    def can_jump_backwards(self):
+        return self.can_jump(JumpDirection.BACKWARD)
+
+    def _toggle_autotrigger(self):
+        self._autotrigger = not self._autotrigger
+        return self._autotrigger
 
     @property
     def _current_snippet(self):
@@ -776,60 +871,9 @@ class SnippetManager(object):
     def _file_to_edit(self, requested_ft, bang):
         """Returns a file to be edited for the given requested_ft.
 
-        If 'bang' is
-        empty only private files in g:UltiSnipsSnippetsDir are considered,
-        otherwise all files are considered and the user gets to choose.
+        If 'bang' is empty a reasonable first choice is opened (see docs), otherwise
+        all files are considered and the user gets to choose.
         """
-        snippet_dir = ""
-        if vim_helper.eval("exists('g:UltiSnipsSnippetsDir')") == "1":
-            dir = vim_helper.eval("g:UltiSnipsSnippetsDir")
-            file = self._get_file_to_edit(dir, requested_ft, bang)
-            if file:
-                return file
-            snippet_dir = dir
-
-        if vim_helper.eval("exists('g:UltiSnipsSnippetDirectories')") == "1":
-            dirs = vim_helper.eval("g:UltiSnipsSnippetDirectories")
-            for dir in dirs:
-                file = self._get_file_to_edit(dir, requested_ft, bang)
-                if file:
-                    return file
-                if not snippet_dir:
-                    snippet_dir = dir
-
-        home = vim_helper.eval("$HOME")
-        if platform.system() == "Windows":
-            dir = os.path.join(home, "vimfiles", "UltiSnips")
-            file = self._get_file_to_edit(dir, requested_ft, bang)
-            if file:
-                return file
-            if not snippet_dir:
-                snippet_dir = dir
-
-        if vim_helper.eval("has('nvim')") == "1":
-            xdg_home_config = vim_helper.eval("$XDG_CONFIG_HOME") or os.path.join(
-                home, ".config"
-            )
-            dir = os.path.join(xdg_home_config, "nvim", "UltiSnips")
-            file = self._get_file_to_edit(dir, requested_ft, bang)
-            if file:
-                return file
-            if not snippet_dir:
-                snippet_dir = dir
-
-        dir = os.path.join(home, ".vim", "UltiSnips")
-        file = self._get_file_to_edit(dir, requested_ft, bang)
-        if file:
-            return file
-        if not snippet_dir:
-            snippet_dir = dir
-
-        return self._get_file_to_edit(snippet_dir, requested_ft, bang, True)
-
-    def _get_file_to_edit(
-        self, snippet_dir, requested_ft, bang, allow_empty=False
-    ):  # pylint: disable=no-self-use
-        potentials = set()
         filetypes = []
         if requested_ft:
             filetypes.append(requested_ft)
@@ -839,34 +883,61 @@ class SnippetManager(object):
             else:
                 filetypes.append(self.get_buffer_filetypes()[0])
 
-        for ft in filetypes:
-            potentials.update(find_snippet_files(ft, snippet_dir))
-            potentials.add(os.path.join(snippet_dir, ft + ".snippets"))
-            if bang:
+        potentials = set()
+
+        dot_vim_dirs = vim_helper.get_dot_vim()
+        all_snippet_directories = find_all_snippet_directories()
+        has_storage_dir = (
+            vim_helper.eval(
+                "exists('g:UltiSnipsSnippetStorageDirectoryForUltiSnipsEdit')"
+            )
+            == "1"
+        )
+        if has_storage_dir:
+            snippet_storage_dir = vim_helper.eval(
+                "g:UltiSnipsSnippetStorageDirectoryForUltiSnipsEdit"
+            )
+            full_path = os.path.expanduser(snippet_storage_dir)
+            potentials.update(
+                _get_potential_snippet_filenames_to_edit(full_path, filetypes)
+            )
+        if len(all_snippet_directories) == 1:
+            # Most likely the user has set g:UltiSnipsSnippetDirectories to a
+            # single absolute path.
+            potentials.update(
+                _get_potential_snippet_filenames_to_edit(
+                    all_snippet_directories[0], filetypes
+                )
+            )
+
+        if (len(all_snippet_directories) != 1 and not has_storage_dir) or (
+            has_storage_dir and bang
+        ):
+            # Likely the array contains things like ["UltiSnips",
+            # "mycoolsnippets"] There is no more obvious way to edit than in
+            # the users vim config directory.
+            for snippet_dir in all_snippet_directories:
+                for dot_vim_dir in dot_vim_dirs:
+                    if Path(dot_vim_dir) != Path(snippet_dir).parent:
+                        continue
+                    potentials.update(
+                        _get_potential_snippet_filenames_to_edit(snippet_dir, filetypes)
+                    )
+
+        if bang:
+            for ft in filetypes:
                 potentials.update(find_all_snippet_files(ft))
-
-        potentials = set(os.path.realpath(os.path.expanduser(p)) for p in potentials)
-
-        if len(potentials) > 1:
-            files = sorted(potentials)
-            formatted = [
-                as_unicode("%i: %s") % (i, escape(fn, "\\"))
-                for i, fn in enumerate(files, 1)
-            ]
-            file_to_edit = _ask_user(files, formatted)
-            if file_to_edit is None:
-                return ""
         else:
-            file_to_edit = potentials.pop()
-
-        if not allow_empty and not os.path.exists(file_to_edit):
-            return ""
-
-        dirname = os.path.dirname(file_to_edit)
-        if not os.path.exists(dirname):
-            os.makedirs(dirname)
-
-        return file_to_edit
+            if not potentials:
+                _show_user_warning(
+                    "UltiSnips was not able to find a default directory for snippets. "
+                    "Do any of " + dot_vim_dirs.__str__() + " exist AND contain "
+                    "any of the folders in g:UltiSnipsSnippetDirectories ? "
+                    "With default vim settings that would be: ~/.vim/UltiSnips "
+                    "Try :UltiSnipsEdit! instead of :UltiSnipsEdit."
+                )
+                return ""
+        return _select_and_create_file_to_edit(potentials)
 
     @contextmanager
     def _action_context(self):
@@ -882,25 +953,22 @@ class SnippetManager(object):
         self._should_update_textobjects = True
 
         try:
-            inserted_char = vim_helper.as_unicode(vim_helper.eval("v:char"))
+            inserted_char = vim_helper.eval("v:char")
         except UnicodeDecodeError:
             return
 
-        if sys.version_info >= (3, 0):
-            if isinstance(inserted_char, bytes):
-                return
-        else:
-            if not isinstance(inserted_char, unicode):
-                return
+        if isinstance(inserted_char, bytes):
+            return
 
         try:
             if inserted_char == "":
                 before = vim_helper.buf.line_till_cursor
 
                 if (
-                    before
+                    self._autotrigger
+                    and before
+                    and self._last_change[0] != ""
                     and before[-1] == self._last_change[0]
-                    or self._last_change[1] != vim_helper.buf.cursor
                 ):
                     self._try_expand(autotrigger_only=True)
         finally:
@@ -915,6 +983,15 @@ class SnippetManager(object):
     def _refresh_snippets(self):
         for _, source in self._snippet_sources:
             source.refresh()
+
+
+    @err_to_scratch_buffer.wrap
+    def _check_filetype(self, ft):
+        """Ensure snippets are loaded for the current filetype."""
+        if ft not in self._filetypes:
+            self._filetypes.append(ft)
+            for _, source in self._snippet_sources:
+                source.must_ensure = True
 
 
 UltiSnips_Manager = SnippetManager(  # pylint:disable=invalid-name

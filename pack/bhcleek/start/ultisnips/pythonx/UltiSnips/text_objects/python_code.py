@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 
 """Implements `!p ` interpolation."""
@@ -7,14 +7,22 @@ import os
 from collections import namedtuple
 
 from UltiSnips import vim_helper
-from UltiSnips.compatibility import as_unicode
 from UltiSnips.indent_util import IndentUtil
 from UltiSnips.text_objects.base import NoneditableTextObject
 from UltiSnips.vim_state import _Placeholder
 import UltiSnips.snippet_manager
 
+# We'll end up compiling the global snippets for every snippet so
+# caching compile() should pay off
+from functools import lru_cache
 
-class _Tabs(object):
+
+@lru_cache(maxsize=None)
+def cached_compile(*args):
+    return compile(*args)
+
+
+class _Tabs:
 
     """Allows access to tabstop content via t[] inside of python code."""
 
@@ -48,7 +56,7 @@ class SnippetUtilForAction(dict):
         self.cursor.preserve()
 
 
-class SnippetUtil(object):
+class SnippetUtil:
 
     """Provides easy access to indentation, etc.
 
@@ -175,8 +183,7 @@ class SnippetUtil(object):
     def p(self):
         if self._parent.current_placeholder:
             return self._parent.current_placeholder
-        else:
-            return _Placeholder("", 0, 0)
+        return _Placeholder("", 0, 0)
 
     @property
     def context(self):
@@ -239,15 +246,23 @@ class PythonCode(NoneditableTextObject):
                 mode = snippet.visual_content.mode
                 context = snippet.context
                 break
-            except AttributeError as e:
+            except AttributeError:
                 snippet = snippet._parent  # pylint:disable=protected-access
         self._snip = SnippetUtil(token.indent, mode, text, context, snippet)
 
         self._codes = (
-            "import re, os, vim, string, random",
-            "\n".join(snippet.globals.get("!p", [])).replace("\r\n", "\n"),
+            "import re, os, vim, string, random\n"
+            + "\n".join(snippet.globals.get("!p", [])).replace("\r\n", "\n"),
             token.code.replace("\\`", "`"),
         )
+        self._compiled_codes = (
+            snippet._compiled_globals
+            or cached_compile(self._codes[0], "<exec-globals>", "exec"),
+            cached_compile(
+                token.code.replace("\\`", "`"), "<exec-interpolation-code>", "exec"
+            ),
+        )
+
         NoneditableTextObject.__init__(self, parent, token)
 
     def _update(self, done, buf):
@@ -265,18 +280,16 @@ class PythonCode(NoneditableTextObject):
         )
         self._snip._reset(ct)  # pylint:disable=protected-access
 
-        for code in self._codes:
+        for code, compiled_code in zip(self._codes, self._compiled_codes):
             try:
-                exec(code, self._locals)  # pylint:disable=exec-used
-            except Exception as e:
-                e.snippet_code = code
+                exec(compiled_code, self._locals)  # pylint:disable=exec-used
+            except Exception as exception:
+                exception.snippet_code = code
                 raise
 
-        rv = as_unicode(
-            self._snip.rv
-            if self._snip._rv_changed  # pylint:disable=protected-access
-            else as_unicode(self._locals["res"])
-        )
+        rv = str(
+            self._snip.rv if self._snip._rv_changed else self._locals["res"]
+        )  # pylint:disable=protected-access
 
         if ct != rv:
             self.overwrite(buf, rv)

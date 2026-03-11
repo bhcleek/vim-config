@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 
 """Utilities to deal with text."""
@@ -51,7 +51,7 @@ def head_tail(line):
     return head, tail
 
 
-class LineIterator(object):
+class LineIterator:
 
     """Convenience class that keeps track of line numbers in files."""
 
@@ -68,8 +68,6 @@ class LineIterator(object):
             self._line_index += 1
             return self._lines[self._line_index]
         raise StopIteration()
-
-    next = __next__  # for python2
 
     @property
     def line_index(self):

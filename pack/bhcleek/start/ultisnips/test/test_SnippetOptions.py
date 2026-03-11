@@ -168,7 +168,7 @@ class No_Tab_Expand_ET_SW_TS(_No_Tab_Expand):
     wanted = "\t\tExpand\tme!\t"
 
 
-class _TabExpand_RealWorld(object):
+class _TabExpand_RealWorld:
     snippets = (
         "hi",
         r"""hi
@@ -219,7 +219,7 @@ class SnippetOptions_Regex_Multiple(_VimTest):
 
 
 class _Regex_Self(_VimTest):
-    snippets = ("((?<=\W)|^)(\.)", "self.", "", "r")
+    snippets = ("((?<=\\W)|^)(\\.)", "self.", "", "r")
 
 
 class SnippetOptions_Regex_Self_Start(_Regex_Self):

@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 
 """Implements a container for parsed snippets."""
 
 
-class SnippetDictionary(object):
+class SnippetDictionary:
 
     """See module docstring."""
 
@@ -58,3 +58,6 @@ class SnippetDictionary(object):
 
     def __len__(self):
         return len(self._snippets)
+
+    def __iter__(self):
+        return iter(self._snippets)

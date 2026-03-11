@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 
 """Not really a lexer in the classical sense, but code to convert snippet
@@ -7,17 +7,17 @@ definitions into logical units called Tokens."""
 import string
 import re
 
-from UltiSnips.compatibility import as_unicode
+from UltiSnips.error import PebkacError
 from UltiSnips.position import Position
 from UltiSnips.text import unescape
 
 
-class _TextIterator(object):
+class _TextIterator:
 
     """Helper class to make iterating over text easier."""
 
     def __init__(self, text, offset):
-        self._text = as_unicode(text)
+        self._text = text
         self._line = offset.line
         self._col = offset.col
 
@@ -40,8 +40,6 @@ class _TextIterator(object):
             self._col += 1
         self._idx += 1
         return rv
-
-    next = __next__  # for python2
 
     def peek(self, count=1):
         """Returns the next 'count' characters without advancing the stream."""
@@ -78,7 +76,7 @@ def _parse_till_closing_brace(stream):
     rv = ""
     in_braces = 1
     while True:
-        if EscapeCharToken.starts_here(stream, "{}"):
+        if EscapeCharToken.starts_here(stream, "\\{}"):
             rv += next(stream) + next(stream)
         else:
             char = next(stream)
@@ -114,12 +112,12 @@ def _parse_till_unescaped_char(stream, chars):
     return rv, char
 
 
-class Token(object):
+class Token:
 
     """Represents a Token as parsed from a snippet definition."""
 
     def __init__(self, gen, indent):
-        self.initial_text = as_unicode("")
+        self.initial_text = ""
         self.start = gen.pos
         self._parse(gen, indent)
         self.end = gen.pos
@@ -187,7 +185,7 @@ class VisualToken(Token):
                 self.replace = _parse_till_unescaped_char(stream, "/")[0]
                 self.options = _parse_till_closing_brace(stream)
             except StopIteration:
-                raise RuntimeError(
+                raise PebkacError(
                     "Invalid ${VISUAL} transformation! Forgot to escape a '/'?"
                 )
         else:
@@ -251,6 +249,70 @@ class MirrorToken(Token):
 
     def __repr__(self):
         return "MirrorToken(%r,%r,%r)" % (self.start, self.end, self.number)
+
+
+class ChoicesToken(Token):
+
+    """${1|o1,o2,o3|}
+    P.S. This is not a subclass of TabStop,
+         so its content will not be parsed recursively.
+    """
+
+    CHECK = re.compile(r"^\${\d+\|")
+
+    @classmethod
+    def starts_here(cls, stream):
+        """Returns true if this token starts at the current position in
+        'stream'."""
+        return cls.CHECK.match(stream.peek(10)) is not None
+
+    def _parse(self, stream, indent):
+        next(stream)  # $
+        next(stream)  # {
+
+        self.number = _parse_number(stream)
+
+        if self.number == 0:
+            raise PebkacError("Choices selection is not supported on $0")
+
+        next(stream)  # |
+
+        choices_text = _parse_till_unescaped_char(stream, "|")[0]
+
+        choice_list = []
+        # inside choice item, comma can be escaped by "\,"
+        # we need to do a little bit smarter parsing than simply splitting
+        choice_stream = _TextIterator(choices_text, Position(0, 0))
+        while True:
+            cur_col = choice_stream.pos.col
+            try:
+                result = _parse_till_unescaped_char(choice_stream, ",")[0]
+                if not result:
+                    continue
+                choice_list.append(self._get_unescaped_choice_item(result))
+            except:
+                last_choice_item = self._get_unescaped_choice_item(
+                    choices_text[cur_col:]
+                )
+                if last_choice_item:
+                    choice_list.append(last_choice_item)
+                break
+        self.choice_list = choice_list
+        self.initial_text = "|{0}|".format(",".join(choice_list))
+
+        _parse_till_closing_brace(stream)
+
+    def _get_unescaped_choice_item(self, escaped_choice_item):
+        """unescape common inside choice item"""
+        return escaped_choice_item.replace(r"\,", ",")
+
+    def __repr__(self):
+        return "ChoicesToken(%r,%r,%r,|%r|)" % (
+            self.start,
+            self.end,
+            self.number,
+            self.initial_text,
+        )
 
 
 class EscapeCharToken(Token):

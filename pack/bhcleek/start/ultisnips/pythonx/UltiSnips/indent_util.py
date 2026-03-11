@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # encoding: utf-8
 
 """See module doc."""
@@ -6,7 +6,7 @@
 from UltiSnips import vim_helper
 
 
-class IndentUtil(object):
+class IndentUtil:
 
     """Utility class for dealing properly with indentation."""
 
